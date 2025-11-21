@@ -1,6 +1,8 @@
+
 export interface User {
-  username: string;
+  username: string; // email
   name: string;
+  uid?: string; // Firebase UID
 }
 
 export enum FileType {
@@ -27,7 +29,12 @@ export interface AuthState {
   user: User | null;
 }
 
-// Adicione isso ao final do arquivo types.ts
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+  timestamp: Date;
+}
 
 export interface Device {
   id: string;
@@ -43,4 +50,27 @@ export interface PrintJob {
   url_arquivo: string;
   status: 'pendente' | 'impresso' | 'erro';
   created_at: Date;
+}
+
+// --- Interfaces do Chat entre Usuários ---
+
+export interface ChatUser {
+  uid: string;
+  email: string;
+  name: string;
+}
+
+export interface UserMessage {
+  id: string;
+  senderId: string;
+  text: string;
+  timestamp: any; // Firestore Timestamp
+}
+
+export interface Conversation {
+  id: string;
+  participants: string[]; // UIDs
+  participantDetails: Record<string, ChatUser>; // Mapa de UIDs para detalhes para fácil acesso
+  lastMessage?: string;
+  lastMessageDate?: any;
 }
