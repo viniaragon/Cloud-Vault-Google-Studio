@@ -8,6 +8,8 @@ import { analyzeFile, fileToBase64 } from './services/geminiService';
 import { saveFileToStorage, getAllFilesFromStorage, deleteFileFromStorage, updateFileInStorage } from './services/storageService';
 import { auth } from './services/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from 'firebase/auth';
+import PrintModal from './components/PrintModal';
+import SummaryModal from './components/SummaryModal';
 
 const App: React.FC = () => {
   // -- State --
@@ -16,6 +18,10 @@ const App: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  
+  // Estado para controlar qual arquivo está sendo impresso ou visualizado
+  const [printingFile, setPrintingFile] = useState<FileMetadata | null>(null); 
+  const [viewingSummaryFile, setViewingSummaryFile] = useState<FileMetadata | null>(null);
 
   const [files, setFiles] = useState<FileMetadata[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -112,7 +118,7 @@ const App: React.FC = () => {
   const handleFilesAdded = useCallback(async (newFiles: File[]) => {
     if (!userState.user) return;
 
-    // 1. Create Metadata (Temporary ID for optimistic UI)
+    // 1. Create Metadata (Temporary ID & Blob URL for optimistic UI)
     const newFileMetadata: FileMetadata[] = newFiles.map((file) => {
       let type = FileType.OTHER;
       if (file.type.startsWith('image/')) type = FileType.IMAGE;
@@ -124,55 +130,86 @@ const App: React.FC = () => {
         size: file.size,
         type: type,
         mimeType: file.type,
-        url: URL.createObjectURL(file), // Temporary URL for preview before upload finishes
+        url: URL.createObjectURL(file), // Começa com URL temporária (blob:)
         uploadDate: new Date(),
         uploader: userState.user?.name || 'Unknown',
-        isAnalyzing: true,
+        isAnalyzing: false, // Começa false pois agora é sob demanda
       };
     });
 
-    // 2. Update UI immediately (Optimistic)
+    // 2. Update UI immediately
     setFiles((prev) => [...newFileMetadata, ...prev]);
 
-    // 3. Persist to DB and Analyze
+    // 3. Persist to DB
     for (let i = 0; i < newFiles.length; i++) {
       const file = newFiles[i];
       const meta = newFileMetadata[i];
 
       try {
-        // Save to Firebase (Storage + Firestore)
-        await saveFileToStorage(meta, file);
+        // AQUI ESTÁ A CORREÇÃO DO ERRO "BLOB":
+        // O saveFileToStorage agora devolve a URL real da internet
+        const realUrl = await saveFileToStorage(meta, file); 
         
-        // Run Gemini Analysis
-        const base64 = await fileToBase64(file);
-        const summary = await analyzeFile(file, base64);
-         
-        // Update UI with AI result
+        // Atualiza a UI com a URL REAL
         setFiles(currentFiles => 
           currentFiles.map(f => 
-             f.id === meta.id ? { ...f, isAnalyzing: false, aiSummary: summary } : f
+             f.id === meta.id ? { 
+               ...f, 
+               isAnalyzing: false, 
+               url: realUrl // <--- Substituímos o 'blob:' pelo 'https://'
+             } : f
           )
         );
-
-        // Update Firestore with AI result
-        await updateFileInStorage(meta.id, { isAnalyzing: false, aiSummary: summary });
-
+        
       } catch (e) {
          console.error(e);
-         const errorMsg = "Erro no upload ou análise.";
-         
          setFiles(currentFiles => 
            currentFiles.map(f => 
-             f.id === meta.id ? { ...f, isAnalyzing: false, aiSummary: errorMsg } : f
+             f.id === meta.id ? { ...f, isAnalyzing: false, aiSummary: "Erro no upload" } : f
            )
          );
-         // Try to update status if document exists
-         try {
-            await updateFileInStorage(meta.id, { isAnalyzing: false, aiSummary: errorMsg });
-         } catch(err) { /* ignore if doc doesn't exist */ }
       }
     }
   }, [userState.user]);
+
+  // Nova função para analisar sob demanda
+  const handleViewOrGenerateSummary = async (fileMeta: FileMetadata) => {
+    // Se já existe resumo, apenas abre o modal
+    if (fileMeta.aiSummary) {
+      setViewingSummaryFile(fileMeta);
+      return;
+    }
+
+    // Se não existe, inicia o processo de análise
+    // 1. Define estado de loading na UI
+    setFiles(prev => prev.map(f => f.id === fileMeta.id ? { ...f, isAnalyzing: true } : f));
+
+    try {
+      // 2. Precisamos pegar o arquivo de volta (via URL) para enviar ao Gemini
+      // O URL do Firebase Storage é público/assinado, então podemos fazer fetch
+      const response = await fetch(fileMeta.url);
+      const blob = await response.blob();
+      const fileObj = new File([blob], fileMeta.name, { type: fileMeta.mimeType });
+      
+      // 3. Converte para Base64 e chama Gemini
+      const base64 = await fileToBase64(fileObj);
+      const summary = await analyzeFile(fileObj, base64);
+
+      // 4. Salva o resultado no Firestore para não precisar gerar de novo depois
+      await updateFileInStorage(fileMeta.id, { aiSummary: summary });
+
+      // 5. Atualiza estado local e abre o modal
+      const updatedFile = { ...fileMeta, aiSummary: summary, isAnalyzing: false };
+      
+      setFiles(prev => prev.map(f => f.id === fileMeta.id ? updatedFile : f));
+      setViewingSummaryFile(updatedFile);
+
+    } catch (error) {
+      console.error("Erro ao gerar resumo sob demanda:", error);
+      alert("Não foi possível analisar o arquivo no momento.");
+      setFiles(prev => prev.map(f => f.id === fileMeta.id ? { ...f, isAnalyzing: false } : f));
+    }
+  };
 
   const handleDelete = async (id: string) => {
     // Optimistic update
@@ -380,7 +417,12 @@ const App: React.FC = () => {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {filteredFiles.map((file) => (
                 <div key={file.id} className="aspect-[3/4]">
-                  <FileCard file={file} onDelete={handleDelete} />
+                  <FileCard 
+                    file={file} 
+                    onDelete={handleDelete} 
+                    onPrint={(fileToPrint) => setPrintingFile(fileToPrint)}
+                    onViewSummary={handleViewOrGenerateSummary}
+                  />
                 </div>
               ))}
             </div>
@@ -390,6 +432,25 @@ const App: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* MODAL: Print (Imprimir) */}
+        {printingFile && (
+          <PrintModal 
+            fileUrl={printingFile.url} 
+            fileName={printingFile.name} 
+            onClose={() => setPrintingFile(null)} 
+          />
+        )}
+
+        {/* MODAL: Summary (Resumo IA) */}
+        {viewingSummaryFile && (
+          <SummaryModal
+            fileName={viewingSummaryFile.name}
+            summary={viewingSummaryFile.aiSummary || "Sem resumo disponível."}
+            onClose={() => setViewingSummaryFile(null)}
+          />
+        )}
+
       </main>
     </div>
   );

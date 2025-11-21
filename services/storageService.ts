@@ -1,4 +1,4 @@
-import { FileMetadata } from '../types';
+import { FileMetadata, Device } from '../types';
 import { db, storage, auth } from './firebase';
 import { 
   collection, 
@@ -39,7 +39,7 @@ const cleanObject = (obj: any) => {
   }, {} as any);
 };
 
-export const saveFileToStorage = async (metadata: FileMetadata, file: File): Promise<void> => {
+export const saveFileToStorage = async (metadata: FileMetadata, file: File): Promise<string> => {
   const user = auth.currentUser;
   if (!user) throw new Error("Usuário não autenticado");
 
@@ -48,22 +48,24 @@ export const saveFileToStorage = async (metadata: FileMetadata, file: File): Pro
   const storageRef = ref(storage, filePath);
   
   const snapshot = await uploadBytes(storageRef, file);
-  const downloadURL = await getDownloadURL(snapshot.ref);
+  const downloadURL = await getDownloadURL(snapshot.ref); // <--- Já temos a URL aqui
 
   // 2. Save Metadata to Firestore
   const { url, id, ...rest } = metadata;
   
-  // Prepara o objeto removendo undefined e adicionando campos de controle
+  // Prepara o objeto
   const fileData = cleanObject({
     ...rest,
     id: metadata.id,
     url: downloadURL,
     storagePath: filePath,
     userId: user.uid,
-    createdAt: new Date() // Firestore converte para Timestamp automaticamente
+    createdAt: new Date() 
   });
   
   await addDoc(collection(db, COLLECTION_NAME), fileData);
+
+  return downloadURL; // <--- ADICIONE ESTE RETORNO
 };
 
 export const updateFileInStorage = async (id: string, changes: Partial<FileMetadata>): Promise<void> => {
@@ -148,5 +150,41 @@ export const deleteFileFromStorage = async (id: string): Promise<void> => {
 
     // Deleta do Firestore (metadados)
     await deleteDoc(docSnap.ref);
+  }
+};
+
+// --- NOVAS FUNÇÕES DE IMPRESSÃO ---
+
+// 1. Envia o pedido para a fila (O Robô vai ler isso)
+export const sendPrintJob = async (fileUrl: string, deviceId: string, printerName: string) => {
+  const collectionRef = collection(db, 'fila_impressao');
+  await addDoc(collectionRef, {
+    pc_alvo_id: deviceId,
+    impressora_alvo: printerName,
+    url_arquivo: fileUrl,
+    status: 'pendente',
+    created_at: new Date()
+  });
+};
+
+// 2. Busca os computadores disponíveis (Você pode usar num useEffect depois)
+export const getOnlineDevices = async (): Promise<Device[]> => {
+  try {
+    const q = query(collection(db, 'dispositivos_online'));
+    const snapshot = await getDocs(q);
+    
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.nome || data.name || 'PC Sem Nome', // <--- A CORREÇÃO ESTÁ AQUI (Lê 'nome' ou 'name')
+        status: data.status,
+        impressoras: data.impressoras || [],
+        ultimo_visto: data.ultimo_visto
+      } as Device;
+    });
+  } catch (error) {
+    console.error("Erro ao buscar dispositivos:", error);
+    return [];
   }
 };

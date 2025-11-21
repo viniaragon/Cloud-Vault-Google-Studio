@@ -1,13 +1,14 @@
 import React from 'react';
 import { FileMetadata, FileType } from '../types';
-import { FileImage, FileText, File, Sparkles, Download, Trash2, Loader2 } from 'lucide-react';
+import { FileImage, FileText, File, Sparkles, Download, Trash2, Loader2, Printer } from 'lucide-react';
 
 interface FileCardProps {
   file: FileMetadata;
   onDelete: (id: string) => void;
+  onPrint: (file: FileMetadata) => void;
+  onViewSummary: (file: FileMetadata) => void; // Added prop
 }
-
-const FileCard: React.FC<FileCardProps> = ({ file, onDelete }) => {
+const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSummary }) => {
   
   const formatSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -53,8 +54,19 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete }) => {
           </div>
         )}
         
-        {/* Overlay actions */}
+{/* Overlay actions */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
+            
+            {/* NOVO BOTÃO: Imprimir Remotamente */}
+            <button 
+              onClick={() => onPrint(file)}
+              className="bg-white text-slate-700 p-2 rounded-full shadow-lg hover:text-indigo-600 transition-colors"
+              title="Imprimir Remotamente"
+            >
+              <Printer size={18} />
+            </button>
+
+            {/* Botão de Baixar (Já existia) */}
             <a 
               href={file.url} 
               download={file.name}
@@ -63,6 +75,8 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete }) => {
             >
               <Download size={18} />
             </a>
+
+            {/* Botão de Excluir (Já existia) */}
             <button 
               onClick={() => onDelete(file.id)}
               className="bg-white text-slate-700 p-2 rounded-full shadow-lg hover:text-red-600 transition-colors"
@@ -84,24 +98,25 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete }) => {
         </div>
       </div>
 
-      {/* AI Summary Section */}
-      <div className="mt-3 pt-3 border-t border-slate-100 min-h-[40px]">
+      {/* AI Summary Section (Updated) */}
+      <div className="mt-3 pt-3 border-t border-slate-100 min-h-[40px] flex items-center">
         {file.isAnalyzing ? (
-          <div className="flex items-center space-x-2 text-indigo-500 animate-pulse">
+          <div className="flex items-center justify-center w-full space-x-2 text-indigo-500 animate-pulse">
              <Loader2 size={14} className="animate-spin" />
-             <span className="text-xs font-medium">Gemini analisando...</span>
-          </div>
-        ) : file.aiSummary ? (
-          <div className="bg-indigo-50 rounded-lg p-2 relative">
-             <div className="absolute -top-2 -right-2 bg-indigo-600 text-white p-1 rounded-full shadow-sm">
-                <Sparkles size={10} fill="currentColor" />
-             </div>
-             <p className="text-[11px] text-indigo-800 leading-relaxed">
-               {file.aiSummary}
-             </p>
+             <span className="text-xs font-medium">Analisando...</span>
           </div>
         ) : (
-          <p className="text-[11px] text-slate-300 italic text-center">Sem análise disponível</p>
+          <button 
+            onClick={() => onViewSummary(file)}
+            className={`w-full group/btn flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-all duration-200 text-xs font-medium border 
+              ${file.aiSummary 
+                ? 'bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-600 border-indigo-100 hover:border-indigo-600' 
+                : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:text-indigo-600'}`}
+            title={file.aiSummary ? "Ver resumo da IA" : "Gerar análise com Gemini"}
+          >
+             <Sparkles size={14} className={`${file.aiSummary ? 'group-hover/btn:text-yellow-300' : 'text-slate-400 group-hover/btn:text-indigo-500'} transition-colors`} />
+             {file.aiSummary ? 'Ver Resumo' : 'Gerar Resumo IA'}
+          </button>
         )}
       </div>
     </div>
