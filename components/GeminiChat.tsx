@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Sparkles, MessageSquare, GripHorizontal, Minimize2 } from 'lucide-react';
 import { ChatMessage, FileMetadata } from '../types';
@@ -24,7 +25,7 @@ const GeminiChat: React.FC<GeminiChatProps> = ({ isOpen, onClose, files }) => {
   const [isThinking, setIsThinking] = useState(false);
   
   // Draggable State
-  const [position, setPosition] = useState({ x: window.innerWidth - 400, y: window.innerHeight - 600 });
+  const [position, setPosition] = useState({ x: window.innerWidth - 450, y: window.innerHeight - 650 });
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number }>({ startX: 0, startY: 0, initialX: 0, initialY: 0 });
 
@@ -147,28 +148,28 @@ const GeminiChat: React.FC<GeminiChatProps> = ({ isOpen, onClose, files }) => {
         maxWidth: '100vw',
         maxHeight: '100vh'
       }}
-      className="fixed w-96 h-[500px] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+      className="fixed w-[420px] h-[600px] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
     >
       {/* Header - Draggable Area */}
       <div 
         onMouseDown={handleMouseDown}
         className={`
-          flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white cursor-move select-none
+          flex items-center justify-between px-5 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white cursor-move select-none
           ${isDragging ? 'cursor-grabbing' : ''}
         `}
       >
-        <div className="flex items-center gap-2 pointer-events-none">
-          <Sparkles size={18} className="text-yellow-300" />
-          <span className="font-semibold text-sm">CloudVault Assistant</span>
+        <div className="flex items-center gap-3 pointer-events-none">
+          <Sparkles size={22} className="text-yellow-300" />
+          <span className="font-semibold text-base">CloudVault Assistant</span>
         </div>
-        <div className="flex items-center gap-2">
-          <GripHorizontal size={18} className="opacity-50" />
+        <div className="flex items-center gap-3">
+          <GripHorizontal size={20} className="opacity-50" />
           <button 
             onClick={onClose}
             className="p-1 hover:bg-white/20 rounded-full transition-colors cursor-pointer"
             onMouseDown={(e) => e.stopPropagation()} // Prevent drag when clicking close
           >
-            <X size={18} />
+            <X size={22} />
           </button>
         </div>
       </div>
@@ -182,7 +183,7 @@ const GeminiChat: React.FC<GeminiChatProps> = ({ isOpen, onClose, files }) => {
           >
             <div 
               className={`
-                max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm
+                max-w-[85%] rounded-2xl px-5 py-4 text-lg leading-relaxed shadow-sm
                 ${msg.role === 'user' 
                   ? 'bg-indigo-600 text-white rounded-br-none' 
                   : 'bg-white text-slate-700 border border-slate-200 rounded-bl-none'}
@@ -195,10 +196,10 @@ const GeminiChat: React.FC<GeminiChatProps> = ({ isOpen, onClose, files }) => {
         
         {isThinking && (
           <div className="flex justify-start w-full animate-pulse">
-            <div className="bg-white border border-slate-200 px-4 py-3 rounded-2xl rounded-bl-none flex items-center gap-2">
-              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            <div className="bg-white border border-slate-200 px-5 py-4 rounded-2xl rounded-bl-none flex items-center gap-2">
+              <div className="w-2.5 h-2.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-2.5 h-2.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-2.5 h-2.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
             </div>
           </div>
         )}
@@ -206,20 +207,20 @@ const GeminiChat: React.FC<GeminiChatProps> = ({ isOpen, onClose, files }) => {
       </div>
 
       {/* Input Area */}
-      <form onSubmit={handleSendMessage} className="p-3 bg-white border-t border-slate-100 flex gap-2">
+      <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-slate-100 flex gap-3">
         <input
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           placeholder="Pergunte sobre seus arquivos..."
-          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-5 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
         />
         <button 
           type="submit"
           disabled={!inputValue.trim() || isThinking}
-          className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white p-2.5 rounded-xl transition-colors flex items-center justify-center shadow-sm"
+          className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white p-3 rounded-xl transition-colors flex items-center justify-center shadow-sm"
         >
-          <Send size={18} />
+          <Send size={20} />
         </button>
       </form>
     </div>

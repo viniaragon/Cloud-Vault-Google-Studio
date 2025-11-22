@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useCallback } from 'react';
 import { UploadCloud, FileUp } from 'lucide-react';
 
@@ -62,7 +63,7 @@ const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded }) => {
         rounded-2xl border-2 border-dashed
         transition-all duration-300 ease-in-out
         flex flex-col items-center justify-center
-        h-48 sm:h-64 w-full
+        h-56 sm:h-72 w-full
         ${isDragOver 
           ? 'border-indigo-500 bg-indigo-50/50 scale-[1.01] shadow-lg' 
           : 'border-slate-300 bg-white hover:border-indigo-400 hover:bg-slate-50 shadow-sm'}
@@ -77,16 +78,16 @@ const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded }) => {
       />
       
       <div className={`
-        p-4 rounded-full mb-4 transition-all duration-300
+        p-5 rounded-full mb-5 transition-all duration-300
         ${isDragOver ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400 group-hover:text-indigo-500 group-hover:bg-indigo-50'}
       `}>
-        {isDragOver ? <FileUp size={32} /> : <UploadCloud size={32} />}
+        {isDragOver ? <FileUp size={40} /> : <UploadCloud size={40} />}
       </div>
       
-      <p className="text-slate-700 font-medium text-lg">
+      <p className="text-slate-700 font-semibold text-2xl">
         {isDragOver ? 'Solte os arquivos aqui' : 'Arraste e solte seus arquivos'}
       </p>
-      <p className="text-slate-400 text-sm mt-2">
+      <p className="text-slate-500 text-lg mt-3">
         ou clique para selecionar do computador
       </p>
     </div>
