@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AuthState, FileMetadata, FileType, User } from './types';
+import { AuthState, FileMetadata, FileType, User } from '../types';
 import Header from './components/Header';
 import DropZone from './components/DropZone';
 import FileCard from './components/FileCard';
-import { Loader2, Lock, ArrowRight, Search, Database, UserPlus } from 'lucide-react';
+import { Loader2, Lock, ArrowRight, Search, Database, UserPlus, Mail } from 'lucide-react';
 import { analyzeFile, fileToBase64 } from './services/geminiService';
 import { saveFileToStorage, getAllFilesFromStorage, deleteFileFromStorage, updateFileInStorage } from './services/storageService';
 import { syncUserToFirestore } from './services/chatService';
@@ -285,108 +285,126 @@ const App: React.FC = () => {
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="animate-spin text-indigo-600" size={48} />
+      <div className="min-h-screen bg-emerald-300 flex items-center justify-center">
+        <Loader2 className="animate-spin text-emerald-900" size={48} />
       </div>
     );
   }
 
   if (!userState.isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      <div className="min-h-screen bg-emerald-300 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        
+        {/* Background Blobs */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-           <div className="absolute top-10 left-10 w-64 h-64 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
-           <div className="absolute top-10 right-10 w-64 h-64 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
+           <div className="absolute -top-20 -left-20 w-96 h-96 bg-emerald-400 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob"></div>
+           <div className="absolute top-1/2 -right-20 w-96 h-96 bg-orange-200 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-2000"></div>
+           <div className="absolute -bottom-20 left-1/3 w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-4000"></div>
         </div>
 
-        <div className="max-w-lg w-full bg-white rounded-2xl shadow-xl border border-slate-100 p-10 z-10">
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-indigo-50 text-indigo-600 rounded-2xl mb-6">
-               <Lock size={40} />
+        <div className="max-w-md w-full bg-orange-50 rounded-3xl shadow-2xl p-8 sm:p-10 z-10 relative border border-orange-200">
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mb-4 text-purple-600 shadow-sm ring-4 ring-purple-50">
+               <Lock size={32} strokeWidth={2.5} />
             </div>
-            <h2 className="text-4xl font-bold text-slate-800">
+            <h2 className="text-3xl font-bold text-emerald-950 tracking-tight">
               {isRegistering ? 'Criar Conta' : 'Área Restrita'}
             </h2>
-            <p className="text-lg text-slate-500 mt-3">
-              {isRegistering ? 'Preencha seus dados para começar' : 'Acesse o banco de dados da empresa'}
+             <p className="text-emerald-800/60 font-medium mt-2">
+              {isRegistering ? 'Junte-se à nossa equipe' : 'Acesse o banco de dados'}
             </p>
           </div>
 
-          <form onSubmit={handleAuth} className="space-y-6">
+          <form onSubmit={handleAuth} className="space-y-5">
             {isRegistering && (
               <div>
-                <label className="block text-lg font-medium text-slate-700 mb-2">Nome</label>
-                <input
-                  type="text"
-                  value={loginForm.name}
-                  onChange={(e) => setLoginForm({ ...loginForm, name: e.target.value })}
-                  className="w-full px-5 py-4 rounded-xl bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-lg"
-                  placeholder="Seu nome completo"
-                  required
-                />
+                 <label className="block text-sm font-bold text-emerald-900/70 mb-1.5 ml-1">Nome</label>
+                <div className="relative">
+                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-emerald-500/50">
+                     <UserPlus size={20} />
+                   </div>
+                   <input
+                    type="text"
+                    value={loginForm.name}
+                    onChange={(e) => setLoginForm({ ...loginForm, name: e.target.value })}
+                    className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-white border border-orange-200 focus:border-purple-400 focus:ring-4 focus:ring-purple-100 outline-none text-slate-700 font-medium shadow-sm transition-all placeholder:text-slate-400"
+                    placeholder="Seu nome completo"
+                    required
+                  />
+                </div>
               </div>
             )}
             <div>
-              <label className="block text-lg font-medium text-slate-700 mb-2">Email</label>
-              <input
-                type="email"
-                value={loginForm.email}
-                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                className="w-full px-5 py-4 rounded-xl bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-lg"
-                placeholder="exemplo@empresa.com"
-                required
-              />
+                <label className="block text-sm font-bold text-emerald-900/70 mb-1.5 ml-1">Email</label>
+                <div className="relative">
+                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-emerald-500/50">
+                     <Mail size={20} />
+                   </div>
+                  <input
+                    type="email"
+                    value={loginForm.email}
+                    onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                    className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-white border border-orange-200 focus:border-purple-400 focus:ring-4 focus:ring-purple-100 outline-none text-slate-700 font-medium shadow-sm transition-all placeholder:text-slate-400"
+                    placeholder="nome@empresa.com"
+                    required
+                  />
+                </div>
             </div>
             <div>
-              <label className="block text-lg font-medium text-slate-700 mb-2">Senha</label>
-              <input
-                type="password"
-                value={loginForm.password}
-                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                className="w-full px-5 py-4 rounded-xl bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-lg"
-                placeholder="••••••••"
-                required
-                minLength={6}
-              />
+              <label className="block text-sm font-bold text-emerald-900/70 mb-1.5 ml-1">Senha</label>
+              <div className="relative">
+                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-emerald-500/50">
+                      <Lock size={20} />
+                   </div>
+                  <input
+                    type="password"
+                    value={loginForm.password}
+                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                    className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-white border border-orange-200 focus:border-purple-400 focus:ring-4 focus:ring-purple-100 outline-none text-slate-700 font-medium shadow-sm transition-all placeholder:text-slate-400"
+                    placeholder="••••••••"
+                    required
+                    minLength={6}
+                  />
+              </div>
             </div>
             
             {loginError && (
-              <p className="text-red-500 text-base bg-red-50 p-4 rounded-xl text-center">{loginError}</p>
+              <p className="text-red-600 text-sm bg-red-50 border border-red-100 p-3 rounded-xl text-center font-medium animate-pulse">{loginError}</p>
             )}
 
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 rounded-xl transition-all transform active:scale-[0.98] flex items-center justify-center shadow-lg shadow-indigo-200 text-xl"
+              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 rounded-xl transition-all transform active:scale-[0.98] flex items-center justify-center shadow-lg shadow-emerald-500/20 text-lg mt-4 group"
             >
               {isLoggingIn ? (
-                <Loader2 className="animate-spin" size={28} />
+                <Loader2 className="animate-spin" size={24} />
               ) : (
-                <span className="flex items-center">
+                <span className="flex items-center gap-2">
                   {isRegistering ? 'Cadastrar' : 'Entrar'} 
-                  <ArrowRight size={24} className="ml-3" />
+                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                 </span>
               )}
             </button>
           </form>
           
-          <div className="mt-8 text-center border-t border-slate-100 pt-6">
+          <div className="mt-8 text-center border-t border-orange-200/50 pt-6">
              <button 
                type="button"
                onClick={() => {
                  setIsRegistering(!isRegistering);
                  setLoginError('');
                }}
-               className="text-base text-indigo-600 font-medium hover:text-indigo-800 transition-colors flex items-center justify-center mx-auto"
+               className="text-sm text-emerald-800 font-semibold hover:text-purple-700 transition-colors flex items-center justify-center mx-auto gap-2 py-2 px-4 rounded-lg hover:bg-white/50"
              >
-               {isRegistering ? (
-                 <>Já tem uma conta? Faça login</>
-               ) : (
-                 <><UserPlus size={20} className="mr-2" /> Não tem conta? Cadastre-se</>
-               )}
+               {isRegistering ? 'Já possui conta? Login' : 'Não possui conta? Cadastre-se'}
              </button>
           </div>
         </div>
+        
+        <p className="absolute bottom-6 text-emerald-900/40 text-xs font-semibold tracking-widest uppercase">
+          CloudVault Enterprise &copy; 2025
+        </p>
       </div>
     );
   }
@@ -410,7 +428,7 @@ const App: React.FC = () => {
              <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200 h-full">
                 <h3 className="text-xl font-semibold text-slate-800 mb-6 flex items-center">
                   Upload de Arquivos
-                  <span className="ml-3 text-sm font-normal bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">Arraste para enviar</span>
+                  <span className="ml-3 text-sm font-bold bg-orange-100 text-orange-600 px-3 py-1 rounded-full">Arraste para enviar</span>
                 </h3>
                 <DropZone onFilesAdded={handleFilesAdded} />
              </div>
@@ -420,20 +438,25 @@ const App: React.FC = () => {
             <div>
                <h3 className="text-xl font-semibold text-slate-800 mb-6">Status do Sistema</h3>
                <div className="space-y-5">
-                 <div className="flex justify-between items-center p-4 bg-emerald-50 rounded-xl border border-emerald-100">
-                    <span className="text-base text-emerald-800 font-medium flex items-center gap-2">
+                 {/* Firebase Card - Green */}
+                 <div className="flex justify-between items-center p-4 bg-emerald-300 rounded-xl shadow-sm">
+                    <span className="text-base text-emerald-950 font-bold flex items-center gap-2">
                       <Database size={18} />
                       Firebase Database
                     </span>
-                    <span className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span className="h-3 w-3 rounded-full bg-emerald-700 animate-pulse"></span>
                  </div>
+                 
+                 {/* Total Files Card - Neutral */}
                  <div className="flex justify-between items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
                     <span className="text-base text-slate-600">Arquivos Totais</span>
                     <span className="font-bold text-lg text-slate-800">{files.length}</span>
                  </div>
-                 <div className="bg-blue-50 p-5 rounded-xl border border-blue-100">
-                   <p className="text-sm text-blue-700 leading-relaxed">
-                     <strong className="block mb-2 text-base">Inteligência Gemini Ativa</strong>
+
+                 {/* Gemini Card - Purple */}
+                 <div className="bg-purple-200 p-5 rounded-xl shadow-sm">
+                   <p className="text-sm text-purple-900 leading-relaxed">
+                     <strong className="block mb-2 text-base font-bold">Inteligência Gemini Ativa</strong>
                      Arquivos são processados pelo Gemini 2.5 e salvos na nuvem com segurança.
                    </p>
                  </div>
@@ -455,14 +478,14 @@ const App: React.FC = () => {
                  placeholder="Pesquisar arquivos..."
                  value={searchQuery}
                  onChange={(e) => setSearchQuery(e.target.value)}
-                 className="w-full pl-12 pr-5 py-3 bg-white border border-slate-200 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
+                 className="w-full pl-12 pr-5 py-3 bg-white border border-slate-200 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent shadow-sm"
                />
             </div>
           </div>
 
           {isLoadingFiles ? (
              <div className="flex items-center justify-center py-24">
-                <Loader2 className="animate-spin text-indigo-500 mr-3" size={24} />
+                <Loader2 className="animate-spin text-emerald-500 mr-3" size={24} />
                 <span className="text-slate-500 text-lg">Carregando banco de dados...</span>
              </div>
           ) : filteredFiles.length > 0 ? (

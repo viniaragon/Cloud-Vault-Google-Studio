@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Sparkles, MessageSquare, GripHorizontal, Minimize2 } from 'lucide-react';
+import { X, Send, Sparkles, GripHorizontal } from 'lucide-react';
 import { ChatMessage, FileMetadata } from '../types';
 import { createChatSession } from '../services/geminiService';
 import { Chat, GenerateContentResponse } from "@google/genai";
@@ -148,18 +148,18 @@ const GeminiChat: React.FC<GeminiChatProps> = ({ isOpen, onClose, files }) => {
         maxWidth: '100vw',
         maxHeight: '100vh'
       }}
-      className="fixed w-[420px] h-[600px] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+      className="fixed w-[420px] h-[600px] flex flex-col bg-white rounded-2xl shadow-2xl border border-purple-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
     >
       {/* Header - Draggable Area */}
       <div 
         onMouseDown={handleMouseDown}
         className={`
-          flex items-center justify-between px-5 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white cursor-move select-none
+          flex items-center justify-between px-5 py-4 bg-purple-600 text-white cursor-move select-none
           ${isDragging ? 'cursor-grabbing' : ''}
         `}
       >
         <div className="flex items-center gap-3 pointer-events-none">
-          <Sparkles size={22} className="text-yellow-300" />
+          <Sparkles size={22} className="text-purple-200" />
           <span className="font-semibold text-base">CloudVault Assistant</span>
         </div>
         <div className="flex items-center gap-3">
@@ -175,7 +175,7 @@ const GeminiChat: React.FC<GeminiChatProps> = ({ isOpen, onClose, files }) => {
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 bg-slate-50 space-y-4 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto p-4 bg-purple-50/30 space-y-4 custom-scrollbar">
         {messages.map((msg) => (
           <div 
             key={msg.id} 
@@ -185,8 +185,8 @@ const GeminiChat: React.FC<GeminiChatProps> = ({ isOpen, onClose, files }) => {
               className={`
                 max-w-[85%] rounded-2xl px-5 py-4 text-lg leading-relaxed shadow-sm
                 ${msg.role === 'user' 
-                  ? 'bg-indigo-600 text-white rounded-br-none' 
-                  : 'bg-white text-slate-700 border border-slate-200 rounded-bl-none'}
+                  ? 'bg-purple-600 text-white rounded-br-none' 
+                  : 'bg-white text-slate-700 border border-purple-100 rounded-bl-none'}
               `}
             >
               {msg.text}
@@ -196,10 +196,10 @@ const GeminiChat: React.FC<GeminiChatProps> = ({ isOpen, onClose, files }) => {
         
         {isThinking && (
           <div className="flex justify-start w-full animate-pulse">
-            <div className="bg-white border border-slate-200 px-5 py-4 rounded-2xl rounded-bl-none flex items-center gap-2">
-              <div className="w-2.5 h-2.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-2.5 h-2.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-              <div className="w-2.5 h-2.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            <div className="bg-white border border-purple-100 px-5 py-4 rounded-2xl rounded-bl-none flex items-center gap-2">
+              <div className="w-2.5 h-2.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-2.5 h-2.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-2.5 h-2.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
             </div>
           </div>
         )}
@@ -207,18 +207,18 @@ const GeminiChat: React.FC<GeminiChatProps> = ({ isOpen, onClose, files }) => {
       </div>
 
       {/* Input Area */}
-      <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-slate-100 flex gap-3">
+      <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-purple-100 flex gap-3">
         <input
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           placeholder="Pergunte sobre seus arquivos..."
-          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-5 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+          className="flex-1 bg-purple-50 border border-purple-100 rounded-xl px-5 py-3 text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white transition-all"
         />
         <button 
           type="submit"
           disabled={!inputValue.trim() || isThinking}
-          className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white p-3 rounded-xl transition-colors flex items-center justify-center shadow-sm"
+          className="bg-purple-600 hover:bg-purple-700 disabled:bg-slate-300 text-white p-3 rounded-xl transition-colors flex items-center justify-center shadow-sm"
         >
           <Send size={20} />
         </button>

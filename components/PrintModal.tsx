@@ -1,7 +1,8 @@
+
 import React, { useEffect, useState } from 'react';
-import { Printer, Monitor, X, Check, Loader2 } from 'lucide-react';
+import { Printer, Monitor, X, Check, Loader2, Trash2 } from 'lucide-react'; 
 import { Device } from '../types';
-import { getOnlineDevices, sendPrintJob } from '../services/storageService';
+import { getOnlineDevices, sendPrintJob, deleteDevice } from '../services/storageService'; 
 
 interface PrintModalProps {
   fileUrl: string;
@@ -17,13 +18,15 @@ const PrintModal: React.FC<PrintModalProps> = ({ fileUrl, fileName, onClose }) =
   const [isSending, setIsSending] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Função para carregar a lista
+  const loadDevices = async () => {
+    setLoading(true);
+    const devs = await getOnlineDevices();
+    setDevices(devs);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    // Carrega os PCs online ao abrir o modal
-    const loadDevices = async () => {
-      const devs = await getOnlineDevices();
-      setDevices(devs);
-      setLoading(false);
-    };
     loadDevices();
   }, []);
 
@@ -33,32 +36,48 @@ const PrintModal: React.FC<PrintModalProps> = ({ fileUrl, fileName, onClose }) =
     try {
       await sendPrintJob(fileUrl, selectedDevice, selectedPrinter);
       setSuccess(true);
-      setTimeout(onClose, 2000); // Fecha sozinho após 2s
+      setTimeout(onClose, 2000);
     } catch (error) {
       alert("Erro ao enviar impressão");
       setIsSending(false);
     }
   };
 
-  // Encontra o objeto do dispositivo selecionado para listar suas impressoras
+  // NOVA FUNÇÃO: Deletar PC
+  const handleDeleteDevice = async (e: React.MouseEvent, id: string, name: string) => {
+    e.stopPropagation(); // Impede que selecione o PC ao clicar na lixeira
+    if (confirm(`Tem certeza que deseja remover o computador "${name}" da lista?`)) {
+      try {
+        await deleteDevice(id);
+        // Remove da lista visualmente na hora
+        setDevices(prev => prev.filter(d => d.id !== id));
+        // Se o deletado estava selecionado, limpa a seleção
+        if (selectedDevice === id) {
+            setSelectedDevice('');
+            setSelectedPrinter('');
+        }
+      } catch (error) {
+        alert("Erro ao deletar.");
+      }
+    }
+  };
+
   const currentDevice = devices.find(d => d.id === selectedDevice);
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
         
-        {/* Cabeçalho */}
-        <div className="bg-indigo-600 p-4 flex justify-between items-center text-white">
+        <div className="bg-emerald-600 p-4 flex justify-between items-center text-white">
           <div className="flex items-center gap-2">
             <Printer size={20} />
             <h3 className="font-semibold">Imprimir Remotamente</h3>
           </div>
-          <button onClick={onClose} className="hover:bg-indigo-700 p-1 rounded-full transition"><X size={18}/></button>
+          <button onClick={onClose} className="hover:bg-emerald-700 p-1 rounded-full transition"><X size={18}/></button>
         </div>
 
-        {/* Corpo */}
         <div className="p-6 space-y-4">
-          <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100 text-sm text-indigo-800 mb-4 truncate">
+          <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-100 text-sm text-emerald-800 mb-4 truncate">
             Arquivo: <strong>{fileName}</strong>
           </div>
 
@@ -68,48 +87,56 @@ const PrintModal: React.FC<PrintModalProps> = ({ fileUrl, fileName, onClose }) =
                 <Check size={40} strokeWidth={3} />
               </div>
               <p className="font-bold text-lg">Enviado com Sucesso!</p>
-              <p className="text-sm text-slate-500">A impressora deve reagir em instantes.</p>
             </div>
           ) : (
             <>
-              {/* Seleção de PC */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">1. Escolha o Médico (PC)</label>
                 {loading ? (
                   <div className="flex items-center gap-2 text-slate-400 text-sm"><Loader2 className="animate-spin" size={14}/> Buscando médicos online...</div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto">
+                  <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto pr-1">
                     {devices.map(dev => (
-                      <button
+                      <div 
                         key={dev.id}
                         onClick={() => { setSelectedDevice(dev.id); setSelectedPrinter(''); }}
-                        className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all
+                        className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all group
                           ${selectedDevice === dev.id 
-                            ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500' 
+                            ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500' 
                             : 'border-slate-200 hover:bg-slate-50'}`}
                       >
-                        <div className={`p-2 rounded-lg ${selectedDevice === dev.id ? 'bg-indigo-200 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>
-                          <Monitor size={18} />
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${selectedDevice === dev.id ? 'bg-emerald-200 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                            <Monitor size={18} />
+                            </div>
+                            <div>
+                                <p className="font-medium text-slate-800 text-sm">{dev.name}</p>
+                                <p className="text-xs text-emerald-600 flex items-center gap-1">● Online</p>
+                            </div>
                         </div>
-                        <div>
-                           <p className="font-medium text-slate-800 text-sm">{dev.name}</p>
-                           <p className="text-xs text-emerald-600 flex items-center gap-1">● Online</p>
-                        </div>
-                      </button>
+
+                        {/* BOTÃO DE LIXEIRA */}
+                        <button
+                            onClick={(e) => handleDeleteDevice(e, dev.id, dev.name)}
+                            className="text-slate-300 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+                            title="Remover este PC da lista"
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                      </div>
                     ))}
-                    {devices.length === 0 && <p className="text-sm text-slate-400 italic">Nenhum PC online encontrado.</p>}
+                    {devices.length === 0 && <p className="text-sm text-slate-400 italic text-center py-4">Nenhum PC online encontrado.</p>}
                   </div>
                 )}
               </div>
 
-              {/* Seleção de Impressora */}
               {selectedDevice && currentDevice && (
                 <div className="animate-in slide-in-from-top-2">
                   <label className="block text-sm font-medium text-slate-700 mb-2 mt-4">2. Escolha a Impressora</label>
                   <select 
                     value={selectedPrinter}
                     onChange={(e) => setSelectedPrinter(e.target.value)}
-                    className="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                   >
                     <option value="">Selecione...</option>
                     {currentDevice.impressoras.map(imp => (
@@ -119,11 +146,10 @@ const PrintModal: React.FC<PrintModalProps> = ({ fileUrl, fileName, onClose }) =
                 </div>
               )}
 
-              {/* Botão de Ação */}
               <button
                 onClick={handlePrint}
                 disabled={!selectedDevice || !selectedPrinter || isSending}
-                className="w-full mt-6 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-200"
+                className="w-full mt-6 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-200"
               >
                 {isSending ? <Loader2 className="animate-spin" /> : <Printer size={18} />}
                 {isSending ? 'Enviando...' : 'Imprimir Agora'}

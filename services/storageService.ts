@@ -8,6 +8,7 @@ import {
   getDocs, 
   query, 
   where,
+  doc
 } from 'firebase/firestore';
 import { 
   ref, 
@@ -173,18 +174,56 @@ export const getOnlineDevices = async (): Promise<Device[]> => {
     const q = query(collection(db, 'dispositivos_online'));
     const snapshot = await getDocs(q);
     
-    return snapshot.docs.map(doc => {
+    const devices: Device[] = [];
+    const now = new Date();
+
+    snapshot.docs.forEach(doc => {
       const data = doc.data();
-      return {
-        id: doc.id,
-        name: data.nome || data.name || 'PC Sem Nome', // <--- A CORREÇÃO ESTÁ AQUI (Lê 'nome' ou 'name')
-        status: data.status,
-        impressoras: data.impressoras || [],
-        ultimo_visto: data.ultimo_visto
-      } as Device;
+      
+      // 1. Verifica a data do último sinal de vida
+      let lastSeenDate = new Date(0); // Começa com data antiga
+      
+      if (data.ultimo_visto) {
+        // Se for Timestamp do Firestore (o padrão), converte
+        if (typeof data.ultimo_visto.toDate === 'function') {
+          lastSeenDate = data.ultimo_visto.toDate();
+        } else {
+          // Se já for data ou string
+          lastSeenDate = new Date(data.ultimo_visto);
+        }
+      }
+
+      // 2. Calcula a diferença em minutos
+      const diffMs = now.getTime() - lastSeenDate.getTime();
+      const diffMinutes = diffMs / 1000 / 60;
+
+      // 3. Regra: Só mostra se o sinal foi mandado em menos de 2.5 minutos
+      // (O script manda a cada 1 minuto, então 2.5 é uma margem segura)
+      if (diffMinutes < 2.5) {
+        devices.push({
+          id: doc.id,
+          name: data.nome || data.name || 'PC Sem Nome',
+          status: 'online', // Forçamos 'online' pois ele respondeu recentemente
+          impressoras: data.impressoras || [],
+          ultimo_visto: lastSeenDate
+        } as Device);
+      }
     });
+
+    return devices;
+
   } catch (error) {
     console.error("Erro ao buscar dispositivos:", error);
     return [];
+  }
+};
+// 3. FUNÇÃO PARA DELETAR O PC
+export const deleteDevice = async (deviceId: string): Promise<void> => {
+  try {
+    const deviceRef = doc(db, 'dispositivos_online', deviceId);
+    await deleteDoc(deviceRef);
+  } catch (error) {
+    console.error("Erro ao deletar dispositivo:", error);
+    throw error;
   }
 };

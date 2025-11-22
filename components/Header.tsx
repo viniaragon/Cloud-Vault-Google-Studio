@@ -23,14 +23,14 @@ const Header: React.FC<HeaderProps> = ({
   hasUnreadMessages
 }) => {
   return (
-    <header className="bg-white border-b border-slate-200 sticky top-0 z-20 px-6 py-5 flex items-center justify-between shadow-sm">
+    <header className="bg-emerald-300 border-b border-emerald-400/50 sticky top-0 z-20 px-6 py-5 flex items-center justify-between shadow-sm">
       <div className="flex items-center space-x-4">
-        <div className="bg-indigo-600 p-2.5 rounded-lg text-white">
+        <div className="bg-white p-2.5 rounded-lg text-emerald-600 shadow-sm">
           <Cloud size={28} strokeWidth={2.5} />
         </div>
         <div>
-          <h1 className="text-3xl font-semibold text-slate-800 tracking-tight">CloudVault</h1>
-          <p className="text-sm text-slate-500 font-medium">ENTERPRISE DATABASE</p>
+          <h1 className="text-3xl font-semibold text-emerald-950 tracking-tight">CloudVault</h1>
+          <p className="text-sm text-emerald-800 font-medium">ENTERPRISE DATABASE</p>
         </div>
       </div>
 
@@ -39,41 +39,41 @@ const Header: React.FC<HeaderProps> = ({
         {/* User Chat Toggle */}
         <button 
           onClick={onToggleUserChat}
-          className={`relative flex items-center gap-2.5 px-4 py-2.5 rounded-full text-base font-medium transition-all duration-200
+          className={`relative flex items-center gap-2.5 px-5 py-2.5 rounded-full text-base font-semibold transition-all duration-200 border
             ${isUserChatOpen 
-              ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-200' 
-              : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+              ? 'bg-emerald-100 text-emerald-800 border-emerald-200 shadow-inner' 
+              : 'bg-white text-emerald-700 border-transparent hover:bg-emerald-50 shadow-sm'}`}
         >
           <MessageCircle size={20} />
           Mensagens
           {hasUnreadMessages && !isUserChatOpen && (
-            <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
+            <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full border-2 border-emerald-300 animate-pulse"></span>
           )}
         </button>
 
         {/* AI Assistant Toggle */}
         <button 
           onClick={onToggleChat}
-          className={`flex items-center gap-2.5 px-4 py-2.5 rounded-full text-base font-medium transition-all duration-200
+          className={`flex items-center gap-2.5 px-5 py-2.5 rounded-full text-base font-semibold transition-all duration-200 border
             ${isChatOpen 
-              ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-200' 
-              : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}
+              ? 'bg-purple-300 text-purple-900 border-purple-400 shadow-inner' 
+              : 'bg-purple-200 text-purple-800 border-purple-200 hover:bg-purple-300 shadow-sm'}`}
         >
           <Sparkles size={20} />
           AI Assistant
         </button>
 
-        <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
+        <div className="h-8 w-px bg-emerald-400/50 hidden sm:block"></div>
 
-        <div className="flex items-center space-x-3 text-slate-600 hidden sm:flex">
-          <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200">
-             <User size={20} />
+        <div className="flex items-center space-x-3 text-emerald-900 hidden sm:flex">
+          <div className="w-10 h-10 bg-emerald-100/50 rounded-full flex items-center justify-center border border-emerald-200">
+             <User size={20} className="text-emerald-800" />
           </div>
           <span className="text-lg font-medium">{user.name}</span>
         </div>
         <button
           onClick={onLogout}
-          className="text-slate-400 hover:text-red-600 transition-colors duration-200"
+          className="text-emerald-800 hover:text-red-600 transition-colors duration-200"
           title="Sair"
         >
           <LogOut size={24} />

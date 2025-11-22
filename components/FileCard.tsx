@@ -33,7 +33,7 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
   const getIcon = () => {
     switch (file.type) {
       case FileType.IMAGE:
-        return <FileImage className="text-indigo-500" size={32} />;
+        return <FileImage className="text-purple-500" size={32} />;
       case FileType.DOCUMENT:
         return <FileText className="text-emerald-500" size={32} />;
       default:
@@ -59,7 +59,7 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
             
             <button 
               onClick={() => onPrint(file)}
-              className="bg-white text-slate-700 p-3 rounded-full shadow-lg hover:text-indigo-600 transition-colors"
+              className="bg-white text-slate-700 p-3 rounded-full shadow-lg hover:text-emerald-600 transition-colors"
               title="Imprimir Remotamente"
             >
               <Printer size={22} />
@@ -68,7 +68,7 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
             <a 
               href={file.url} 
               download={file.name}
-              className="bg-white text-slate-700 p-3 rounded-full shadow-lg hover:text-indigo-600 transition-colors"
+              className="bg-white text-slate-700 p-3 rounded-full shadow-lg hover:text-emerald-600 transition-colors"
               title="Baixar"
             >
               <Download size={22} />
@@ -98,7 +98,7 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
       {/* AI Summary Section */}
       <div className="mt-4 pt-4 border-t border-slate-100 min-h-[50px] flex items-center">
         {file.isAnalyzing ? (
-          <div className="flex items-center justify-center w-full space-x-2 text-indigo-500 animate-pulse">
+          <div className="flex items-center justify-center w-full space-x-2 text-purple-500 animate-pulse">
              <Loader2 size={18} className="animate-spin" />
              <span className="text-sm font-medium">Analisando...</span>
           </div>
@@ -107,11 +107,11 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
             onClick={() => onViewSummary(file)}
             className={`w-full group/btn flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg transition-all duration-200 text-sm font-semibold border 
               ${file.aiSummary 
-                ? 'bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-600 border-indigo-100 hover:border-indigo-600' 
-                : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:text-indigo-600'}`}
+                ? 'bg-purple-50 hover:bg-purple-600 hover:text-white text-purple-600 border-purple-100 hover:border-purple-600' 
+                : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:text-purple-600'}`}
             title={file.aiSummary ? "Ver resumo da IA" : "Gerar análise com Gemini"}
           >
-             <Sparkles size={18} className={`${file.aiSummary ? 'group-hover/btn:text-yellow-300' : 'text-slate-400 group-hover/btn:text-indigo-500'} transition-colors`} />
+             <Sparkles size={18} className={`${file.aiSummary ? 'group-hover/btn:text-yellow-300' : 'text-slate-400 group-hover/btn:text-purple-500'} transition-colors`} />
              {file.aiSummary ? 'Ver Resumo' : 'Gerar Resumo IA'}
           </button>
         )}

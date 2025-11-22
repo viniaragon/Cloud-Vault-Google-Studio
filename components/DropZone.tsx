@@ -65,8 +65,8 @@ const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded }) => {
         flex flex-col items-center justify-center
         h-56 sm:h-72 w-full
         ${isDragOver 
-          ? 'border-indigo-500 bg-indigo-50/50 scale-[1.01] shadow-lg' 
-          : 'border-slate-300 bg-white hover:border-indigo-400 hover:bg-slate-50 shadow-sm'}
+          ? 'border-orange-400 bg-orange-100 scale-[1.01] shadow-lg' 
+          : 'border-orange-300 bg-orange-50 hover:border-orange-400 hover:bg-orange-100/80 shadow-sm'}
       `}
     >
       <input
@@ -79,15 +79,15 @@ const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded }) => {
       
       <div className={`
         p-5 rounded-full mb-5 transition-all duration-300
-        ${isDragOver ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400 group-hover:text-indigo-500 group-hover:bg-indigo-50'}
+        ${isDragOver ? 'bg-orange-200 text-orange-600' : 'bg-orange-100 text-orange-400 group-hover:text-orange-500 group-hover:bg-orange-200'}
       `}>
         {isDragOver ? <FileUp size={40} /> : <UploadCloud size={40} />}
       </div>
       
-      <p className="text-slate-700 font-semibold text-2xl">
+      <p className="text-slate-800 font-bold text-2xl">
         {isDragOver ? 'Solte os arquivos aqui' : 'Arraste e solte seus arquivos'}
       </p>
-      <p className="text-slate-500 text-lg mt-3">
+      <p className="text-slate-500 text-lg mt-3 font-medium">
         ou clique para selecionar do computador
       </p>
     </div>
