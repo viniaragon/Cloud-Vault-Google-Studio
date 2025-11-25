@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { FileMetadata, FileType } from '../types';
 import { FileImage, FileText, File, Sparkles, Download, Trash2, Loader2, Printer } from 'lucide-react';
@@ -9,6 +8,7 @@ interface FileCardProps {
   onPrint: (file: FileMetadata) => void;
   onViewSummary: (file: FileMetadata) => void;
 }
+
 const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSummary }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   
@@ -47,70 +47,57 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
     setIsDownloading(true);
 
     try {
-      let blob: Blob;
+      // 1. Baixar o arquivo para a memória (Blob)
+      // Nota: Isso requer que o CORS esteja configurado no Firebase Console
+      const response = await fetch(file.url);
+      
+      if (!response.ok) throw new Error("Falha ao baixar arquivo do servidor.");
+      
+      const blob = await response.blob();
 
-      // 1. Tentar Fetch direto
-      try {
-        const response = await fetch(file.url);
-        if (!response.ok) throw new Error("Erro rede direto");
-        blob = await response.blob();
-      } catch (directError) {
-        console.warn("Fetch direto falhou (CORS), tentando via Proxy AllOrigins...", directError);
-        // 2. Fallback via Proxy (AllOrigins é mais permissivo que corsproxy.io para raw data)
-        try {
-          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(file.url)}`;
-          const response = await fetch(proxyUrl);
-          if (!response.ok) throw new Error("Erro rede proxy");
-          blob = await response.blob();
-        } catch (proxyError) {
-          throw new Error("Falha ao baixar arquivo (CORS bloqueado).");
-        }
-      }
-
-      // 3. Tentar usar a API moderna (showSaveFilePicker) para "Salvar Como"
-      // Nota: Isso pode falhar em iframes (como no editor online) com SecurityError
-      let savedViaPicker = false;
+      // 2. Tentar usar a API moderna "Salvar Como" (File System Access API)
+      // Esta API permite que o usuário escolha a pasta e o nome
       if ('showSaveFilePicker' in window) {
         try {
-          const opts = {
+          const handle = await (window as any).showSaveFilePicker({
             suggestedName: file.name,
             types: [{
               description: 'Arquivo',
               accept: { [file.mimeType || 'application/octet-stream']: [] },
             }],
-          };
-          // Cast window to any to avoid TS errors with experimental API
-          const handle = await (window as any).showSaveFilePicker(opts);
+          });
+          
           const writable = await handle.createWritable();
           await writable.write(blob);
           await writable.close();
-          savedViaPicker = true;
+          
+          setIsDownloading(false);
+          return; // Sucesso, paramos aqui.
         } catch (err: any) {
-          // Se o usuário cancelar (AbortError), paramos.
+          // Se o usuário cancelou, não é erro.
           if (err.name === 'AbortError') {
-             setIsDownloading(false);
-             return;
+            setIsDownloading(false);
+            return;
           }
-          console.warn("File System Access API falhou (provavelmente restrição de iframe), tentando método clássico", err);
-          // Não relança erro, deixa cair para o fallback clássico (download automático)
+          // Se deu erro de segurança (iframe/sandbox), continuamos para o fallback
+          console.warn("Janela de salvar não permitida neste contexto, usando download automático.");
         }
       }
 
-      if (!savedViaPicker) {
-        // 4. Fallback clássico (Blob URL) - Salva na pasta padrão de downloads
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = file.name;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      }
+      // 3. Fallback Clássico (Download Automático na pasta Downloads)
+      // Usado se o navegador não suportar a API nova ou estiver em sandbox
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
 
     } catch (error) {
-      console.error("Falha no download:", error);
-      // Último recurso: abrir URL direta em nova aba
+      console.error("Erro no download:", error);
+      // Último recurso: abrir em nova aba (o navegador decide se baixa ou exibe)
       window.open(file.url, '_blank');
     } finally {
       setIsDownloading(false);
@@ -120,7 +107,6 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col h-full group relative overflow-hidden">
       
-      {/* Preview Area */}
       <div className="h-40 w-full bg-slate-50 rounded-lg mb-4 flex items-center justify-center overflow-hidden relative">
         {file.type === FileType.IMAGE ? (
           <img src={file.url} alt={file.name} className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-500" />
@@ -130,7 +116,6 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
           </div>
         )}
         
-        {/* Overlay actions */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100 gap-3">
             
             <button 
@@ -145,7 +130,7 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
               onClick={handleDownload}
               disabled={isDownloading}
               className="bg-white text-slate-700 p-3 rounded-full shadow-lg hover:text-emerald-600 transition-colors disabled:opacity-70 disabled:cursor-wait"
-              title="Baixar"
+              title="Baixar / Salvar Como"
             >
               {isDownloading ? <Loader2 size={22} className="animate-spin text-emerald-600" /> : <Download size={22} />}
             </button>
@@ -160,7 +145,6 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
         </div>
       </div>
 
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <h3 className="font-semibold text-slate-800 truncate text-lg" title={file.name}>
           {file.name}
@@ -171,7 +155,6 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
         </div>
       </div>
 
-      {/* AI Summary Section */}
       <div className="mt-4 pt-4 border-t border-slate-100 min-h-[50px] flex items-center">
         {file.isAnalyzing ? (
           <div className="flex items-center justify-center w-full space-x-2 text-purple-500 animate-pulse">
