@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { FileMetadata, FileType } from '../types';
 import { FileImage, FileText, File, Sparkles, Download, Trash2, Loader2, Printer } from 'lucide-react';
 
@@ -10,6 +10,7 @@ interface FileCardProps {
   onViewSummary: (file: FileMetadata) => void;
 }
 const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSummary }) => {
+  const [isDownloading, setIsDownloading] = useState(false);
   
   const formatSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -41,6 +42,81 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
     }
   };
 
+  const handleDownload = async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+
+    try {
+      let blob: Blob;
+
+      // 1. Tentar Fetch direto
+      try {
+        const response = await fetch(file.url);
+        if (!response.ok) throw new Error("Erro rede direto");
+        blob = await response.blob();
+      } catch (directError) {
+        console.warn("Fetch direto falhou (CORS), tentando via Proxy AllOrigins...", directError);
+        // 2. Fallback via Proxy (AllOrigins é mais permissivo que corsproxy.io para raw data)
+        try {
+          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(file.url)}`;
+          const response = await fetch(proxyUrl);
+          if (!response.ok) throw new Error("Erro rede proxy");
+          blob = await response.blob();
+        } catch (proxyError) {
+          throw new Error("Falha ao baixar arquivo (CORS bloqueado).");
+        }
+      }
+
+      // 3. Tentar usar a API moderna (showSaveFilePicker) para "Salvar Como"
+      // Nota: Isso pode falhar em iframes (como no editor online) com SecurityError
+      let savedViaPicker = false;
+      if ('showSaveFilePicker' in window) {
+        try {
+          const opts = {
+            suggestedName: file.name,
+            types: [{
+              description: 'Arquivo',
+              accept: { [file.mimeType || 'application/octet-stream']: [] },
+            }],
+          };
+          // Cast window to any to avoid TS errors with experimental API
+          const handle = await (window as any).showSaveFilePicker(opts);
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          savedViaPicker = true;
+        } catch (err: any) {
+          // Se o usuário cancelar (AbortError), paramos.
+          if (err.name === 'AbortError') {
+             setIsDownloading(false);
+             return;
+          }
+          console.warn("File System Access API falhou (provavelmente restrição de iframe), tentando método clássico", err);
+          // Não relança erro, deixa cair para o fallback clássico (download automático)
+        }
+      }
+
+      if (!savedViaPicker) {
+        // 4. Fallback clássico (Blob URL) - Salva na pasta padrão de downloads
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+
+    } catch (error) {
+      console.error("Falha no download:", error);
+      // Último recurso: abrir URL direta em nova aba
+      window.open(file.url, '_blank');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col h-full group relative overflow-hidden">
       
@@ -65,14 +141,14 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
               <Printer size={22} />
             </button>
 
-            <a 
-              href={file.url} 
-              download={file.name}
-              className="bg-white text-slate-700 p-3 rounded-full shadow-lg hover:text-emerald-600 transition-colors"
+            <button 
+              onClick={handleDownload}
+              disabled={isDownloading}
+              className="bg-white text-slate-700 p-3 rounded-full shadow-lg hover:text-emerald-600 transition-colors disabled:opacity-70 disabled:cursor-wait"
               title="Baixar"
             >
-              <Download size={22} />
-            </a>
+              {isDownloading ? <Loader2 size={22} className="animate-spin text-emerald-600" /> : <Download size={22} />}
+            </button>
 
             <button 
               onClick={() => onDelete(file.id)}

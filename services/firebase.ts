@@ -1,4 +1,4 @@
-import * as firebaseApp from 'firebase/app';
+import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -14,9 +14,10 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = firebaseApp.initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 
 // Export services
 export const auth = getAuth(app);
-export const db = getFirestore(app, "cloud-valut-storage"); 
+// Initialize Firestore with the specific database ID provided
+export const db = getFirestore(app, "cloud-valut-storage");
 export const storage = getStorage(app);

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Printer, Monitor, X, Check, Loader2, Trash2 } from 'lucide-react'; 
 import { Device } from '../types';
@@ -43,22 +42,24 @@ const PrintModal: React.FC<PrintModalProps> = ({ fileUrl, fileName, onClose }) =
     }
   };
 
-  // NOVA FUNÇÃO: Deletar PC
-  const handleDeleteDevice = async (e: React.MouseEvent, id: string, name: string) => {
-    e.stopPropagation(); // Impede que selecione o PC ao clicar na lixeira
-    if (confirm(`Tem certeza que deseja remover o computador "${name}" da lista?`)) {
-      try {
-        await deleteDevice(id);
-        // Remove da lista visualmente na hora
-        setDevices(prev => prev.filter(d => d.id !== id));
-        // Se o deletado estava selecionado, limpa a seleção
-        if (selectedDevice === id) {
-            setSelectedDevice('');
-            setSelectedPrinter('');
-        }
-      } catch (error) {
-        alert("Erro ao deletar.");
+  // Função: Deletar PC
+const handleDeleteDevice = async (e: React.MouseEvent, id: string, name: string) => {
+    e.stopPropagation(); 
+    
+    // REMOVI O "if (confirm(...))" POIS O SEU NAVEGADOR ESTÁ BLOQUEANDO
+    try {
+      await deleteDevice(id);
+      
+      // Remove da lista visualmente
+      setDevices(prev => prev.filter(d => d.id !== id));
+      
+      // Se o deletado estava selecionado, limpa a seleção
+      if (selectedDevice === id) {
+          setSelectedDevice('');
+          setSelectedPrinter('');
       }
+    } catch (error) {
+      console.error("Erro ao deletar:", error); // Mudei de alert para console.error
     }
   };
 
@@ -93,39 +94,59 @@ const PrintModal: React.FC<PrintModalProps> = ({ fileUrl, fileName, onClose }) =
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">1. Escolha o Médico (PC)</label>
                 {loading ? (
-                  <div className="flex items-center gap-2 text-slate-400 text-sm"><Loader2 className="animate-spin" size={14}/> Buscando médicos online...</div>
+                  <div className="flex items-center gap-2 text-slate-400 text-sm"><Loader2 className="animate-spin" size={14}/> Buscando médicos...</div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto pr-1">
-                    {devices.map(dev => (
-                      <div 
-                        key={dev.id}
-                        onClick={() => { setSelectedDevice(dev.id); setSelectedPrinter(''); }}
-                        className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all group
-                          ${selectedDevice === dev.id 
-                            ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500' 
-                            : 'border-slate-200 hover:bg-slate-50'}`}
-                      >
-                        <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-lg ${selectedDevice === dev.id ? 'bg-emerald-200 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                            <Monitor size={18} />
-                            </div>
-                            <div>
-                                <p className="font-medium text-slate-800 text-sm">{dev.name}</p>
-                                <p className="text-xs text-emerald-600 flex items-center gap-1">● Online</p>
-                            </div>
-                        </div>
-
-                        {/* BOTÃO DE LIXEIRA */}
-                        <button
-                            onClick={(e) => handleDeleteDevice(e, dev.id, dev.name)}
-                            className="text-slate-300 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
-                            title="Remover este PC da lista"
+                  <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-1">
+                    {devices.map(dev => {
+                      const isOnline = dev.status === 'online';
+                      
+                      return (
+                        <div 
+                          key={dev.id}
+                          onClick={() => { 
+                            // Só permite selecionar se estiver ONLINE
+                            if (isOnline) {
+                                setSelectedDevice(dev.id); 
+                                setSelectedPrinter('');
+                            }
+                          }}
+                          className={`flex items-center justify-between p-3 rounded-xl border transition-all group relative
+                            ${selectedDevice === dev.id 
+                              ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500' // Selecionado
+                              : isOnline 
+                                ? 'border-slate-200 hover:bg-slate-50 cursor-pointer' // Online
+                                : 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed' // Offline (Cinza)
+                            }`}
                         >
-                            <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
-                    {devices.length === 0 && <p className="text-sm text-slate-400 italic text-center py-4">Nenhum PC online encontrado.</p>}
+                          <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-lg ${
+                                selectedDevice === dev.id ? 'bg-emerald-200 text-emerald-700' : 
+                                isOnline ? 'bg-slate-100 text-slate-500' : 'bg-slate-200 text-slate-400'
+                              }`}>
+                                <Monitor size={18} />
+                              </div>
+                              <div>
+                                  <p className={`font-medium text-sm ${isOnline ? 'text-slate-800' : 'text-slate-500'}`}>
+                                      {dev.name}
+                                  </p>
+                                  <p className={`text-xs flex items-center gap-1 ${isOnline ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                      ● {isOnline ? 'Online' : 'Offline'}
+                                  </p>
+                              </div>
+                          </div>
+
+                          {/* BOTÃO DE LIXEIRA */}
+                          <button
+                              onClick={(e) => handleDeleteDevice(e, dev.id, dev.name)}
+                              className="text-slate-300 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 z-10"
+                              title="Remover este PC da lista"
+                          >
+                              <Trash2 size={16} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                    {devices.length === 0 && <p className="text-sm text-slate-400 italic text-center py-4">Nenhum PC encontrado.</p>}
                   </div>
                 )}
               </div>

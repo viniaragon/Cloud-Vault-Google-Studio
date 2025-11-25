@@ -6,7 +6,7 @@ import DropZone from './components/DropZone';
 import FileCard from './components/FileCard';
 import { Loader2, Lock, ArrowRight, Search, Database, UserPlus } from 'lucide-react';
 import { analyzeFile, fileToBase64 } from './services/geminiService';
-import { saveFileToStorage, getAllFilesFromStorage, deleteFileFromStorage, updateFileInStorage } from './services/storageService';
+import { saveFileToStorage, deleteFileFromStorage, updateFileInStorage, subscribeToFiles } from './services/storageService';
 import { syncUserToFirestore } from './services/chatService';
 import { auth } from './services/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from 'firebase/auth';
@@ -35,6 +35,9 @@ const App: React.FC = () => {
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
   const [files, setFiles] = useState<FileMetadata[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState<FileMetadata[]>([]); // Arquivos sendo enviados (Optimistic UI)
+  const [analyzingFileIds, setAnalyzingFileIds] = useState<Set<string>>(new Set()); // IDs sendo analisados localmente
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -73,6 +76,7 @@ const App: React.FC = () => {
       } else {
         setUserState({ isAuthenticated: false, user: null });
         setFiles([]);
+        setUploadingFiles([]);
         fileCacheRef.current = {};
       }
       setIsInitializing(false);
@@ -81,21 +85,15 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // Load files from Database when authenticated
+  // Subscribe to files from Database when authenticated (REAL-TIME)
   useEffect(() => {
     if (userState.isAuthenticated) {
-      const loadFiles = async () => {
-        setIsLoadingFiles(true);
-        try {
-          const storedFiles = await getAllFilesFromStorage();
-          setFiles(storedFiles);
-        } catch (error) {
-          console.error("Failed to load files from DB", error);
-        } finally {
-          setIsLoadingFiles(false);
-        }
-      };
-      loadFiles();
+      setIsLoadingFiles(true);
+      const unsubscribe = subscribeToFiles((updatedFiles) => {
+        setFiles(updatedFiles);
+        setIsLoadingFiles(false);
+      });
+      return () => unsubscribe();
     }
   }, [userState.isAuthenticated]);
 
@@ -147,7 +145,6 @@ const App: React.FC = () => {
 
   const toggleUserChat = () => {
     if (!isUserChatOpen) {
-      // Ao abrir, limpamos a notificação
       setHasUnreadMessages(false);
     }
     setIsUserChatOpen(!isUserChatOpen);
@@ -177,36 +174,29 @@ const App: React.FC = () => {
         url: URL.createObjectURL(file),
         uploadDate: new Date(),
         uploader: userState.user?.name || 'Unknown',
-        isAnalyzing: false,
+        isAnalyzing: false, // Pode ser usado como 'uploading' visualmente se necessário
       };
     });
 
-    setFiles((prev) => [...newFileMetadata, ...prev]);
+    // Adiciona aos arquivos sendo enviados (Optimistic UI)
+    setUploadingFiles((prev) => [...newFileMetadata, ...prev]);
 
     for (let i = 0; i < newFiles.length; i++) {
       const file = newFiles[i];
       const meta = newFileMetadata[i];
 
       try {
-        const realUrl = await saveFileToStorage(meta, file); 
+        // O banco de dados atualizará a lista principal 'files' via subscribeToFiles
+        await saveFileToStorage(meta, file);
         
-        setFiles(currentFiles => 
-          currentFiles.map(f => 
-             f.id === meta.id ? { 
-               ...f, 
-               isAnalyzing: false, 
-               url: realUrl 
-             } : f
-          )
-        );
+        // Após salvar com sucesso, removemos da lista de upload, 
+        // pois a subscription já deve ter pego (ou vai pegar) o arquivo
+        setUploadingFiles(prev => prev.filter(f => f.id !== meta.id));
         
       } catch (e) {
          console.error(e);
-         setFiles(currentFiles => 
-           currentFiles.map(f => 
-             f.id === meta.id ? { ...f, isAnalyzing: false, aiSummary: "Erro no upload" } : f
-           )
-         );
+         alert(`Erro ao fazer upload de ${meta.name}`);
+         setUploadingFiles(prev => prev.filter(f => f.id !== meta.id));
       }
     }
   }, [userState.user]);
@@ -217,7 +207,8 @@ const App: React.FC = () => {
       return;
     }
 
-    setFiles(prev => prev.map(f => f.id === fileMeta.id ? { ...f, isAnalyzing: true } : f));
+    // Set local analyzing state
+    setAnalyzingFileIds(prev => new Set(prev).add(fileMeta.id));
 
     try {
       let fileObj: File | null = fileCacheRef.current[fileMeta.id];
@@ -235,9 +226,9 @@ const App: React.FC = () => {
           fileObj = new File([blob], fileMeta.name, { type: fileMeta.mimeType });
           base64 = await fileToBase64(fileObj);
         } catch (fetchError) {
-          console.warn("Fetch direto falhou (provável CORS). Tentando via proxy...", fetchError);
+          console.warn("Fetch direto falhou (provável CORS). Tentando via proxy AllOrigins...", fetchError);
           try {
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(fileMeta.url)}`;
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(fileMeta.url)}`;
             const response = await fetch(proxyUrl);
             if (!response.ok) throw new Error("Erro no proxy");
             const blob = await response.blob();
@@ -255,20 +246,24 @@ const App: React.FC = () => {
       await updateFileInStorage(fileMeta.id, { aiSummary: summary });
 
       const updatedFile = { ...fileMeta, aiSummary: summary, isAnalyzing: false };
-      setFiles(prev => prev.map(f => f.id === fileMeta.id ? updatedFile : f));
+      
+      // Update viewing modal immediately if it was successful
       setViewingSummaryFile(updatedFile);
 
     } catch (error) {
       console.error("Erro ao gerar resumo sob demanda:", error);
       alert("Não foi possível analisar este arquivo. Se você acabou de recarregar a página, tente fazer o upload novamente para habilitar a análise imediata.");
-      setFiles(prev => prev.map(f => f.id === fileMeta.id ? { ...f, isAnalyzing: false } : f));
+    } finally {
+      setAnalyzingFileIds(prev => {
+        const next = new Set(prev);
+        next.delete(fileMeta.id);
+        return next;
+      });
     }
   };
 
   const handleDelete = async (id: string) => {
-    const previousFiles = [...files];
-    setFiles((prev) => prev.filter((f) => f.id !== id));
-    
+    // Optimistic delete not needed as much because delete is fast, but we rely on DB subscription
     try {
       await deleteFileFromStorage(id);
       if (fileCacheRef.current[id]) {
@@ -276,12 +271,16 @@ const App: React.FC = () => {
       }
     } catch (error) {
       console.error("Error deleting file", error);
-      setFiles(previousFiles);
       alert("Erro ao excluir arquivo. Tente novamente.");
     }
   };
 
-  const filteredFiles = files.filter(f => 
+  // Merge uploaded files (optimistic) and real files (DB), removing duplicates if any
+  const allFiles = [...uploadingFiles, ...files].filter((file, index, self) => 
+    index === self.findIndex((f) => f.id === file.id)
+  );
+
+  const filteredFiles = allFiles.filter(f => 
     f.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     (f.aiSummary && f.aiSummary.toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -294,59 +293,67 @@ const App: React.FC = () => {
     );
   }
 
+  // -- Render: Login Screen (VISUAL NOVO: Menta & Pêssego) --
   if (!userState.isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-           <div className="absolute top-10 left-10 w-64 h-64 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
-           <div className="absolute top-10 right-10 w-64 h-64 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
+      <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-teal-100 to-emerald-50 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        
+        {/* Decoração de Fundo (Bolhas Suaves) */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-40">
+           <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-teal-200 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
+           <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000"></div>
         </div>
 
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-100 p-8 z-10">
+        {/* CARTÃO PRINCIPAL: Cor Pêssego (#ffe0c2) */}
+        <div className="max-w-md w-full bg-[#ffe0c2] rounded-2xl shadow-xl p-8 z-10 border-4 border-white/30">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl mb-4">
-               <Lock size={32} />
+            
+            {/* ÍCONE: Roxo */}
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-purple-200/80 text-purple-700 rounded-full mb-4 shadow-sm ring-4 ring-white/50">
+               <Lock size={32} strokeWidth={2.5} />
             </div>
-            <h2 className="text-2xl font-bold text-slate-800">
+            
+            {/* TÍTULO: Roxo Escuro */}
+            <h2 className="text-2xl font-bold text-purple-900">
               {isRegistering ? 'Criar Conta' : 'Área Restrita'}
             </h2>
-            <p className="text-slate-500 mt-2">
-              {isRegistering ? 'Preencha seus dados para começar' : 'Acesse o banco de dados da empresa'}
+            <p className="text-purple-800/70 mt-2 font-medium text-sm">
+              {isRegistering ? 'Preencha seus dados' : 'Acesse o sistema da empresa'}
             </p>
           </div>
 
           <form onSubmit={handleAuth} className="space-y-5">
             {isRegistering && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nome</label>
+                <label className="block text-xs font-bold text-purple-900 mb-1 ml-1 uppercase tracking-wide">Nome</label>
                 <input
                   type="text"
                   value={loginForm.name}
                   onChange={(e) => setLoginForm({ ...loginForm, name: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                  className="w-full px-4 py-3 rounded-lg bg-white/90 border-2 border-transparent focus:border-purple-400 text-purple-900 placeholder-purple-300 focus:ring-0 outline-none transition-all shadow-sm"
                   placeholder="Seu nome completo"
                   required
                 />
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+              <label className="block text-xs font-bold text-purple-900 mb-1 ml-1 uppercase tracking-wide">Email</label>
               <input
                 type="email"
                 value={loginForm.email}
                 onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
-                placeholder="exemplo@empresa.com"
+                className="w-full px-4 py-3 rounded-lg bg-white/90 border-2 border-transparent focus:border-purple-400 text-purple-900 placeholder-purple-300 focus:ring-0 outline-none transition-all shadow-sm"
+                placeholder="exemplo@email.com"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Senha</label>
+              <label className="block text-xs font-bold text-purple-900 mb-1 ml-1 uppercase tracking-wide">Senha</label>
               <input
                 type="password"
                 value={loginForm.password}
                 onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                className="w-full px-4 py-3 rounded-lg bg-white/90 border-2 border-transparent focus:border-purple-400 text-purple-900 placeholder-purple-300 focus:ring-0 outline-none transition-all shadow-sm"
                 placeholder="••••••••"
                 required
                 minLength={6}
@@ -354,33 +361,34 @@ const App: React.FC = () => {
             </div>
             
             {loginError && (
-              <p className="text-red-500 text-sm bg-red-50 p-3 rounded-lg text-center">{loginError}</p>
+              <p className="text-red-600 text-sm bg-white/50 p-3 rounded-lg text-center font-bold border border-red-200">{loginError}</p>
             )}
 
+            {/* BOTÃO: Verde Esmeralda Vibrante (#00c48f) */}
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg transition-all transform active:scale-[0.98] flex items-center justify-center shadow-lg shadow-indigo-200"
+              className="w-full bg-[#00c48f] hover:bg-[#00a87a] text-white font-bold py-3.5 rounded-lg transition-all transform active:scale-[0.98] flex items-center justify-center shadow-lg mt-4"
             >
               {isLoggingIn ? (
                 <Loader2 className="animate-spin" />
               ) : (
                 <span className="flex items-center">
                   {isRegistering ? 'Cadastrar' : 'Entrar'} 
-                  <ArrowRight size={18} className="ml-2" />
+                  <ArrowRight size={18} className="ml-2" strokeWidth={3} />
                 </span>
               )}
             </button>
           </form>
           
-          <div className="mt-6 text-center border-t border-slate-100 pt-4">
+          <div className="mt-6 text-center pt-2 border-t border-purple-900/10">
              <button 
                type="button"
                onClick={() => {
                  setIsRegistering(!isRegistering);
                  setLoginError('');
                }}
-               className="text-sm text-indigo-600 font-medium hover:text-indigo-800 transition-colors flex items-center justify-center mx-auto"
+               className="text-sm text-purple-700 font-bold hover:text-purple-900 transition-colors flex items-center justify-center mx-auto mt-2"
              >
                {isRegistering ? (
                  <>Já tem uma conta? Faça login</>
@@ -390,6 +398,11 @@ const App: React.FC = () => {
              </button>
           </div>
         </div>
+        
+        {/* Rodapé discreto */}
+        <p className="absolute bottom-6 text-emerald-800/40 text-xs font-semibold tracking-widest uppercase">
+          CloudVault Enterprise &copy; 2025
+        </p>
       </div>
     );
   }
@@ -463,7 +476,7 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {isLoadingFiles ? (
+          {isLoadingFiles && files.length === 0 ? (
              <div className="flex items-center justify-center py-20">
                 <Loader2 className="animate-spin text-indigo-500 mr-2" />
                 <span className="text-slate-500">Carregando banco de dados...</span>
@@ -473,7 +486,11 @@ const App: React.FC = () => {
               {filteredFiles.map((file) => (
                 <div key={file.id} className="aspect-[3/4]">
                   <FileCard 
-                    file={file} 
+                    file={{
+                      ...file,
+                      // Override isAnalyzing status if local analysis is happening
+                      isAnalyzing: analyzingFileIds.has(file.id) || file.isAnalyzing
+                    }} 
                     onDelete={handleDelete} 
                     onPrint={(fileToPrint) => setPrintingFile(fileToPrint)}
                     onViewSummary={handleViewOrGenerateSummary}
