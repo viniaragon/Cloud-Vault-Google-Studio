@@ -1,4 +1,3 @@
-
 import { db } from './firebase';
 import { 
   collection, 
@@ -28,10 +27,9 @@ export const syncUserToFirestore = async (user: ChatUser) => {
   }, { merge: true });
 };
 
-// Busca usuários por email (exato ou parcial se implementar lógica avançada)
+// Busca usuários por email
 export const searchUsersByEmail = async (emailQuery: string, currentUserId: string): Promise<ChatUser[]> => {
   const usersRef = collection(db, 'users');
-  // Busca exata por simplicidade. Para "starts with", precisaria de lógica >= e <=
   const q = query(usersRef, where("email", "==", emailQuery));
   
   const snapshot = await getDocs(q);
@@ -49,18 +47,13 @@ export const searchUsersByEmail = async (emailQuery: string, currentUserId: stri
 
 // --- Gerenciamento de Conversas ---
 
-// Cria ou retorna ID de conversa existente entre dois usuários
+// A FUNÇÃO QUE ESTAVA FALTANDO:
 export const getOrCreateConversation = async (currentUser: ChatUser, otherUser: ChatUser): Promise<string> => {
-  // 1. Verifica se já existe conversa (solução simples: query por participants array)
-  // Nota: Firestore queries em arrays podem ser complexas. 
-  // Uma estratégia comum é gerar um ID determinístico (ex: uid1_uid2 ordenado)
-  
   const uids = [currentUser.uid, otherUser.uid].sort();
   const chatId = `${uids[0]}_${uids[1]}`;
   
   const chatRef = doc(db, 'conversations', chatId);
   
-  // Usamos setDoc com merge para garantir que existe, sem sobrescrever se já tiver dados
   await setDoc(chatRef, {
     id: chatId,
     participants: uids,
@@ -79,26 +72,21 @@ export const sendUserMessage = async (chatId: string, senderId: string, text: st
   const messagesRef = collection(db, 'conversations', chatId, 'messages');
   const chatRef = doc(db, 'conversations', chatId);
 
-  // Adiciona mensagem
   await addDoc(messagesRef, {
     senderId,
     text,
     timestamp: serverTimestamp()
   });
 
-  // Atualiza metadados da conversa (última mensagem)
   await setDoc(chatRef, {
     lastMessage: text,
     lastMessageDate: serverTimestamp()
   }, { merge: true });
 };
 
-// --- Hooks / Listeners (para usar dentro de useEffects) ---
+// --- Hooks / Listeners ---
 
-// Ouve lista de conversas do usuário
 export const subscribeToConversations = (userId: string, callback: (chats: Conversation[]) => void) => {
-  // CORREÇÃO: Removemos orderBy('updatedAt', 'desc') da query.
-  // Isso evita o erro "The query requires an index" do Firestore.
   const q = query(
     collection(db, 'conversations'),
     where('participants', 'array-contains', userId)
@@ -110,9 +98,7 @@ export const subscribeToConversations = (userId: string, callback: (chats: Conve
       ...doc.data()
     } as Conversation));
     
-    // Ordenamos as conversas aqui no cliente (mais recente primeiro)
     chats.sort((a, b) => {
-      // Tenta usar a data da última mensagem, ou fallback para data de atualização
       const dateA = a.lastMessageDate?.seconds || (a as any).updatedAt?.seconds || 0;
       const dateB = b.lastMessageDate?.seconds || (b as any).updatedAt?.seconds || 0;
       return dateB - dateA;
@@ -122,7 +108,6 @@ export const subscribeToConversations = (userId: string, callback: (chats: Conve
   });
 };
 
-// Ouve mensagens de uma conversa específica
 export const subscribeToMessages = (chatId: string, callback: (msgs: UserMessage[]) => void) => {
   const q = query(
     collection(db, 'conversations', chatId, 'messages'),

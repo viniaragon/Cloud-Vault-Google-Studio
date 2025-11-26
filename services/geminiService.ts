@@ -4,31 +4,31 @@ import { FileMetadata } from "../types";
 const AI_API_KEY = process.env.API_KEY;
 
 // Initialize Gemini
-// Note: In a production app, never expose keys on the client. 
-// This is for demonstration/prototyping purposes as requested.
 const ai = new GoogleGenAI({ apiKey: AI_API_KEY });
 
-export const analyzeFile = async (file: File, base64Data: string): Promise<string> => {
+// Função de Análise (Usada para "Ver Resumo" ou transcrever áudio puro)
+export const analyzeFile = async (file: File | Blob, base64Data: string): Promise<string> => {
   if (!AI_API_KEY) {
     return "Chave de API não configurada.";
   }
 
   try {
-    const isImage = file.type.startsWith('image/');
-    const isText = file.type === 'text/plain';
-    const isPdf = file.type === 'application/pdf';
+    const mimeType = file.type;
+    const isImage = mimeType.startsWith('image/');
+    const isAudio = mimeType.startsWith('audio/');
+    
+    // UPGRADE: Usando o modelo Gemini 3 Pro
+    let modelName = "gemini-3-pro-preview"; 
 
     let prompt = "";
-    let modelName = "gemini-2.5-flash";
 
     if (isImage) {
-      modelName = "gemini-2.5-flash"; 
-      prompt = "Analise esta imagem brevemente. Descreva o que é, detecte objetos principais ou leia textos visíveis. Responda em Português, máximo 20 palavras.";
-    } else if (isText || isPdf) {
-      modelName = "gemini-2.5-flash";
-      prompt = "Analise este documento. Faça um resumo conciso dos pontos principais em Português, ideal para uma identificação rápida do conteúdo.";
+      prompt = "Analise esta imagem. Descreva o que é, detecte objetos principais ou leia textos visíveis. Responda em Português.";
+    } else if (isAudio) {
+      prompt = "Ouça este áudio. Transcreva o conteúdo falado fielmente, apenas corrigindo pontuação.";
     } else {
-      return "Formato não suportado para análise IA.";
+      // PDF e Texto
+      prompt = "Analise este documento. Faça um resumo detalhado dos pontos principais em Português.";
     }
 
     const base64Content = base64Data.split(',')[1];
@@ -39,7 +39,7 @@ export const analyzeFile = async (file: File, base64Data: string): Promise<strin
         parts: [
           {
             inlineData: {
-              mimeType: file.type,
+              mimeType: mimeType,
               data: base64Content,
             },
           },
@@ -57,7 +57,7 @@ export const analyzeFile = async (file: File, base64Data: string): Promise<strin
   }
 };
 
-export const fileToBase64 = (file: File): Promise<string> => {
+export const fileToBase64 = (file: File | Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -69,27 +69,24 @@ export const fileToBase64 = (file: File): Promise<string> => {
 // --- CHAT FUNCTIONALITY ---
 
 export const createChatSession = (filesContext: FileMetadata[]) => {
-  // Prepare context about existing files
   const contextDescription = filesContext.map(f => 
     `- Arquivo: ${f.name} (${f.type}). ${f.aiSummary ? `Resumo: ${f.aiSummary}` : 'Sem resumo ainda.'}`
   ).join('\n');
 
   const systemInstruction = `
-    Você é o assistente virtual inteligente do sistema CloudVault Enterprise.
-    Seu objetivo é ajudar o usuário a gerenciar seus arquivos e responder perguntas sobre eles.
+    Você é o assistente virtual avançado do sistema CloudVault Enterprise, alimentado pelo Gemini 3 Pro.
     
-    Aqui está a lista de arquivos que o usuário possui atualmente no banco de dados:
-    ${contextDescription || "Nenhum arquivo disponível no momento."}
+    CONTEXTO DE ARQUIVOS (Use APENAS se a pergunta for sobre eles):
+    ${contextDescription || "Nenhum arquivo carregado no momento."}
 
-    Diretrizes:
-    1. Responda sempre em Português do Brasil.
-    2. Seja conciso, profissional e prestativo.
-    3. Se o usuário perguntar sobre um arquivo específico, use o resumo fornecido no contexto para responder.
-    4. Se perguntarem algo fora do contexto dos arquivos, responda como um assistente geral prestativo.
+    DIRETRIZES:
+    1. **Capacidade Plena:** Você não é limitado aos arquivos. Pode responder sobre qualquer assunto (código, medicina, criatividade, etc).
+    2. **Áudio:** Se receber uma transcrição de áudio do usuário, responda à pergunta ou comentário contido nela naturalmente.
+    3. **Idioma:** Responda sempre em Português do Brasil.
   `;
 
   return ai.chats.create({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3-pro-preview', // MODELO ATUALIZADO
     config: {
       systemInstruction: systemInstruction,
     }
