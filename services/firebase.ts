@@ -15,14 +15,10 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
+const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
 
-const app = firebase.app();
-
-// Export services
 export const auth = app.auth();
-// Note: Using default database. Named database support is limited in compat/v8 SDKs.
-export const db = app.firestore(); 
+export const db = app.firestore();
 export const storage = app.storage();
+
+export default app;

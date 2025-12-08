@@ -1,22 +1,24 @@
 
 import { FileMetadata, Device } from '../types';
 import { db, storage, auth } from './firebase';
-// Using firebase compat for types and static methods like serverTimestamp if needed, 
-// though here we use Date objects mostly.
 import firebase from 'firebase/compat/app';
 
 const COLLECTION_NAME = 'files';
 
-// Helper para converter datas do Firestore com segurança
+// Helper to safely convert Firestore timestamps
 const toDate = (value: any): Date => {
   if (!value) return new Date();
   if (typeof value.toDate === 'function') {
     return value.toDate();
   }
+  // Check if it's an object with seconds (like the compat timestamp)
+  if (value && typeof value.seconds === 'number') {
+    return new Date(value.seconds * 1000);
+  }
   return new Date(value);
 };
 
-// Helper para remover campos undefined
+// Helper to remove undefined fields
 const cleanObject = (obj: any) => {
   return Object.entries(obj).reduce((acc, [key, value]) => {
     if (value !== undefined) {
@@ -26,7 +28,7 @@ const cleanObject = (obj: any) => {
   }, {} as any);
 };
 
-// --- FUNÇÕES DE ARQUIVOS ---
+// --- FILE FUNCTIONS ---
 
 export const saveFileToStorage = async (metadata: FileMetadata, file: File): Promise<string> => {
   const user = auth.currentUser;
@@ -35,6 +37,7 @@ export const saveFileToStorage = async (metadata: FileMetadata, file: File): Pro
   const filePath = `files/${user.uid}/${Date.now()}_${file.name}`;
   const storageRef = storage.ref(filePath);
   
+  // Upload Compat
   const snapshot = await storageRef.put(file);
   const downloadURL = await snapshot.ref.getDownloadURL();
 
@@ -49,6 +52,7 @@ export const saveFileToStorage = async (metadata: FileMetadata, file: File): Pro
     createdAt: new Date()
   });
   
+  // Firestore Compat
   await db.collection(COLLECTION_NAME).add(fileData);
 
   return downloadURL;
@@ -68,7 +72,6 @@ export const updateFileInStorage = async (id: string, changes: Partial<FileMetad
   }
 };
 
-// Função original mantida para referência, mas a aplicação usará a subscribeToFiles
 export const getAllFilesFromStorage = async (): Promise<FileMetadata[]> => {
   const user = auth.currentUser;
   if (!user) {
@@ -76,9 +79,7 @@ export const getAllFilesFromStorage = async (): Promise<FileMetadata[]> => {
   }
 
   try {
-    const querySnapshot = await db.collection(COLLECTION_NAME)
-      .where("userId", "==", user.uid)
-      .get();
+    const querySnapshot = await db.collection(COLLECTION_NAME).where("userId", "==", user.uid).get();
     
     const files: FileMetadata[] = querySnapshot.docs.map(doc => {
       const data = doc.data();
@@ -130,9 +131,10 @@ export const subscribeToFiles = (callback: (files: FileMetadata[]) => void) => {
   const user = auth.currentUser;
   if (!user) {
     callback([]);
-    return () => {}; // Retorna função de limpeza vazia
+    return () => {}; 
   }
 
+  // Compat onSnapshot
   const unsubscribe = db.collection(COLLECTION_NAME)
     .where("userId", "==", user.uid)
     .onSnapshot((snapshot) => {
@@ -154,7 +156,6 @@ export const subscribeToFiles = (callback: (files: FileMetadata[]) => void) => {
         } as FileMetadata;
       });
 
-      // Ordenação no cliente
       files.sort((a, b) => b.uploadDate.getTime() - a.uploadDate.getTime());
       
       callback(files);
@@ -189,11 +190,7 @@ export const getOnlineDevices = async (): Promise<Device[]> => {
       
       let lastSeenDate = new Date(0);
       if (data.ultimo_visto) {
-        if (typeof data.ultimo_visto.toDate === 'function') {
-          lastSeenDate = data.ultimo_visto.toDate();
-        } else {
-          lastSeenDate = new Date(data.ultimo_visto);
-        }
+        lastSeenDate = toDate(data.ultimo_visto);
       }
 
       const diffMs = now.getTime() - lastSeenDate.getTime();
@@ -222,7 +219,6 @@ export const getOnlineDevices = async (): Promise<Device[]> => {
   }
 };
 
-// FUNÇÃO DE DELETAR O PC
 export const deleteDevice = async (deviceId: string): Promise<void> => {
   try {
     await db.collection('dispositivos_online').doc(deviceId).delete();

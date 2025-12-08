@@ -1,12 +1,22 @@
 
-import React from 'react';
-import { LogIn, Menu } from 'lucide-react';
+import React, { useState } from 'react';
+import { LogIn, Menu, X } from 'lucide-react';
 
 interface LandingPageProps {
   onEnterApp: () => void;
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const scrollToSection = (id: string) => {
+    setIsMenuOpen(false); // Fecha o menu mobile se estiver aberto
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="font-sans text-[#222] leading-relaxed bg-[#f5f7fb] min-h-screen">
       {/* Header */}
@@ -14,13 +24,22 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="text-xl md:text-2xl font-bold tracking-tight">Ecolink Laudos Remotos</div>
           
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 md:gap-6">
+            {/* Desktop Navigation */}
             <nav className="hidden md:flex gap-6 text-sm md:text-base">
-              <a href="#como-funciona" className="text-white hover:underline transition-all">Como funciona</a>
-              <a href="#medicos" className="text-white hover:underline transition-all">Para médicos</a>
-              <a href="#laudistas" className="text-white hover:underline transition-all">Para laudistas</a>
-              <a href="#contato" className="text-white hover:underline transition-all">Contato</a>
+              <button onClick={() => scrollToSection('como-funciona')} className="text-white hover:underline transition-all">Como funciona</button>
+              <button onClick={() => scrollToSection('medicos')} className="text-white hover:underline transition-all">Para médicos</button>
+              <button onClick={() => scrollToSection('laudistas')} className="text-white hover:underline transition-all">Para laudistas</button>
+              <button onClick={() => scrollToSection('contato')} className="text-white hover:underline transition-all">Contato</button>
             </nav>
+
+            {/* Mobile Menu Toggle */}
+            <button 
+              className="md:hidden text-white p-1" 
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+            >
+              {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
+            </button>
 
             {/* Botão de Acesso ao CloudVault */}
             <button 
@@ -32,6 +51,16 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
             </button>
           </div>
         </div>
+
+        {/* Mobile Navigation Dropdown */}
+        {isMenuOpen && (
+          <div className="md:hidden absolute top-full left-0 w-full bg-[#0b3c75] border-t border-white/10 shadow-xl py-4 flex flex-col items-center space-y-4 animate-in slide-in-from-top-5">
+              <button onClick={() => scrollToSection('como-funciona')} className="text-white text-lg font-medium hover:text-[#ffd24c] transition-colors py-2">Como funciona</button>
+              <button onClick={() => scrollToSection('medicos')} className="text-white text-lg font-medium hover:text-[#ffd24c] transition-colors py-2">Para médicos</button>
+              <button onClick={() => scrollToSection('laudistas')} className="text-white text-lg font-medium hover:text-[#ffd24c] transition-colors py-2">Para laudistas</button>
+              <button onClick={() => scrollToSection('contato')} className="text-white text-lg font-medium hover:text-[#ffd24c] transition-colors py-2">Contato</button>
+          </div>
+        )}
       </header>
 
       {/* Hero Section */}
@@ -44,12 +73,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
             Atenda em várias cidades sem precisar levar uma digitadora. 
             A Ecolink recebe suas informações, digita e devolve o laudo pronto para você revisar, assinar e entregar ao paciente.
           </p>
-          <a 
-            href="#contato" 
-            className="inline-block px-8 py-3 bg-[#ffd24c] text-[#0b3c75] rounded-md font-bold text-lg hover:bg-[#ffc107] transition-colors shadow-lg"
+          <button 
+            onClick={() => scrollToSection('contato')}
+            className="inline-block px-8 py-3 bg-[#ffd24c] text-[#0b3c75] rounded-md font-bold text-lg hover:bg-[#ffc107] transition-colors shadow-lg cursor-pointer"
           >
             Quero saber mais
-          </a>
+          </button>
         </div>
       </section>
 

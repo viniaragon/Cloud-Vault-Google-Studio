@@ -9,7 +9,13 @@ import { analyzeFile, fileToBase64 } from './services/geminiService';
 import { saveFileToStorage, deleteFileFromStorage, updateFileInStorage, subscribeToFiles } from './services/storageService';
 import { syncUserToFirestore } from './services/chatService';
 import { auth } from './services/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from 'firebase/auth';
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  updateProfile, 
+  signOut 
+} from 'firebase/auth';
 import PrintModal from './components/PrintModal';
 import SummaryModal from './components/SummaryModal';
 import GeminiChat from './components/GeminiChat';
@@ -64,12 +70,6 @@ const App: React.FC = () => {
           user: userData
         });
 
-        // Se o usuário já estiver logado, podemos optar por pular a landing page ou não.
-        // Seguindo o pedido, o padrão é a landing page, mas se ele recarregar a página logado, 
-        // talvez faça sentido ir direto. Por hora, manteremos a Landing Page como porta de entrada.
-        // Para UX melhor: Se estiver logado, mantém na app se ele não tiver clicado em "voltar".
-        // Mas como state reseta no refresh, ele voltará pra Landing.
-
         // Sincroniza usuário com o banco de dados 'users'
         try {
           await syncUserToFirestore({
@@ -115,9 +115,11 @@ const App: React.FC = () => {
     try {
       if (isRegistering) {
         const userCredential = await createUserWithEmailAndPassword(auth, loginForm.email, loginForm.password);
-        await updateProfile(userCredential.user, {
-          displayName: loginForm.name
-        });
+        if (userCredential.user) {
+          await updateProfile(userCredential.user, {
+            displayName: loginForm.name
+          });
+        }
       } else {
         await signInWithEmailAndPassword(auth, loginForm.email, loginForm.password);
       }

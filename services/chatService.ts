@@ -5,7 +5,6 @@ import { ChatUser, Conversation, UserMessage } from '../types';
 
 // --- Gerenciamento de Usuários ---
 
-// Salva/Atualiza usuário público para ser encontrado na busca
 export const syncUserToFirestore = async (user: ChatUser) => {
   await db.collection('users').doc(user.uid).set({
     uid: user.uid,
@@ -15,9 +14,9 @@ export const syncUserToFirestore = async (user: ChatUser) => {
   }, { merge: true });
 };
 
-// Busca usuários por email
 export const searchUsersByEmail = async (emailQuery: string, currentUserId: string): Promise<ChatUser[]> => {
-  const snapshot = await db.collection('users').where("email", "==", emailQuery).get();
+  const q = db.collection('users').where("email", "==", emailQuery);
+  const snapshot = await q.get();
   const foundUsers: ChatUser[] = [];
   
   snapshot.forEach(doc => {
@@ -49,14 +48,15 @@ export const getOrCreateConversation = async (currentUser: ChatUser, otherUser: 
   return chatId;
 };
 
-// Envia mensagem
 export const sendUserMessage = async (chatId: string, senderId: string, text: string) => {
+  // Adiciona a mensagem na subcoleção
   await db.collection('conversations').doc(chatId).collection('messages').add({
     senderId,
     text,
     timestamp: firebase.firestore.FieldValue.serverTimestamp()
   });
 
+  // Atualiza a conversa pai
   await db.collection('conversations').doc(chatId).set({
     lastMessage: text,
     lastMessageDate: firebase.firestore.FieldValue.serverTimestamp()
@@ -66,14 +66,15 @@ export const sendUserMessage = async (chatId: string, senderId: string, text: st
 // --- Hooks / Listeners ---
 
 export const subscribeToConversations = (userId: string, callback: (chats: Conversation[]) => void) => {
-  const unsubscribe = db.collection('conversations')
-    .where('participants', 'array-contains', userId)
-    .onSnapshot((snapshot) => {
+  const q = db.collection('conversations').where('participants', 'array-contains', userId);
+  
+  const unsubscribe = q.onSnapshot((snapshot) => {
       const chats = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as Conversation));
       
+      // Ordenação no cliente (evita erros de índice composto)
       chats.sort((a, b) => {
         const dateA = a.lastMessageDate?.seconds || (a as any).updatedAt?.seconds || 0;
         const dateB = b.lastMessageDate?.seconds || (b as any).updatedAt?.seconds || 0;
@@ -87,12 +88,12 @@ export const subscribeToConversations = (userId: string, callback: (chats: Conve
 };
 
 export const subscribeToMessages = (chatId: string, callback: (msgs: UserMessage[]) => void) => {
-  const unsubscribe = db.collection('conversations')
-    .doc(chatId)
+  const q = db.collection('conversations').doc(chatId)
     .collection('messages')
     .orderBy('timestamp', 'asc')
-    .limit(100)
-    .onSnapshot((snapshot) => {
+    .limit(100);
+
+  const unsubscribe = q.onSnapshot((snapshot) => {
       const msgs = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
