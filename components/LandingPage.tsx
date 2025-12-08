@@ -186,7 +186,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
 
           {/* Botão WhatsApp Direto */}
           <a
-            href="https://wa.me/5500000000000?text=Olá! Vim pelo site da Ecolink e gostaria de saber mais sobre os laudos remotos."
+            href="https://wa.me/5577998077366?text=Olá! Vim pelo site da Ecolink e gostaria de saber mais sobre os laudos remotos."
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-3 w-full py-4 bg-[#25D366] hover:bg-[#1da851] text-white font-bold rounded-lg transition-all shadow-md mb-8 transform hover:scale-[1.02]"
@@ -239,7 +239,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
 
       {/* Botão Flutuante do WhatsApp */}
       <a
-        href="https://wa.me/5500000000000?text=Olá! Vim pelo site da Ecolink e gostaria de saber mais sobre os laudos remotos."
+        href="https://wa.me/5577998077366?text=Olá! Vim pelo site da Ecolink e gostaria de saber mais sobre os laudos remotos."
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 z-50 bg-[#25D366] hover:bg-[#1da851] text-white p-4 rounded-full shadow-lg transition-all transform hover:scale-110 animate-bounce hover:animate-none"
