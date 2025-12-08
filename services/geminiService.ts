@@ -3,12 +3,12 @@ import { FileMetadata } from "../types";
 
 const AI_API_KEY = process.env.API_KEY;
 
-// Initialize Gemini
-const ai = new GoogleGenAI({ apiKey: AI_API_KEY });
+// Initialize Gemini only if API key exists (prevents app crash)
+const ai = AI_API_KEY ? new GoogleGenAI({ apiKey: AI_API_KEY }) : null;
 
 // Função de Análise (Usada para "Ver Resumo" ou transcrever áudio puro)
 export const analyzeFile = async (file: File | Blob, base64Data: string): Promise<string> => {
-  if (!AI_API_KEY) {
+  if (!AI_API_KEY || !ai) {
     return "Chave de API não configurada.";
   }
 
@@ -16,9 +16,9 @@ export const analyzeFile = async (file: File | Blob, base64Data: string): Promis
     const mimeType = file.type;
     const isImage = mimeType.startsWith('image/');
     const isAudio = mimeType.startsWith('audio/');
-    
+
     // UPGRADE: Usando o modelo Gemini 3 Pro
-    let modelName = "gemini-3-pro-preview"; 
+    let modelName = "gemini-3-pro-preview";
 
     let prompt = "";
 
@@ -69,7 +69,7 @@ export const fileToBase64 = (file: File | Blob): Promise<string> => {
 // --- CHAT FUNCTIONALITY ---
 
 export const createChatSession = (filesContext: FileMetadata[]) => {
-  const contextDescription = filesContext.map(f => 
+  const contextDescription = filesContext.map(f =>
     `- Arquivo: ${f.name} (${f.type}). ${f.aiSummary ? `Resumo: ${f.aiSummary}` : 'Sem resumo ainda.'}`
   ).join('\n');
 
@@ -84,6 +84,10 @@ export const createChatSession = (filesContext: FileMetadata[]) => {
     2. **Áudio:** Se receber uma transcrição de áudio do usuário, responda à pergunta ou comentário contido nela naturalmente.
     3. **Idioma:** Responda sempre em Português do Brasil.
   `;
+
+  if (!ai) {
+    throw new Error('API Key não configurada');
+  }
 
   return ai.chats.create({
     model: 'gemini-3-pro-preview', // MODELO ATUALIZADO
