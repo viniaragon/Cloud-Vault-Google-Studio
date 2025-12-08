@@ -14,9 +14,11 @@ import PrintModal from './components/PrintModal';
 import SummaryModal from './components/SummaryModal';
 import GeminiChat from './components/GeminiChat';
 import UserChat from './components/UserChat';
+import LandingPage from './components/LandingPage';
 
 const App: React.FC = () => {
   // -- State --
+  const [showLandingPage, setShowLandingPage] = useState(true);
   const [userState, setUserState] = useState<AuthState>({ isAuthenticated: false, user: null });
   const [loginForm, setLoginForm] = useState({ email: '', password: '', name: '' });
   const [isRegistering, setIsRegistering] = useState(false);
@@ -62,6 +64,12 @@ const App: React.FC = () => {
           user: userData
         });
 
+        // Se o usuário já estiver logado, podemos optar por pular a landing page ou não.
+        // Seguindo o pedido, o padrão é a landing page, mas se ele recarregar a página logado, 
+        // talvez faça sentido ir direto. Por hora, manteremos a Landing Page como porta de entrada.
+        // Para UX melhor: Se estiver logado, mantém na app se ele não tiver clicado em "voltar".
+        // Mas como state reseta no refresh, ele voltará pra Landing.
+
         // Sincroniza usuário com o banco de dados 'users'
         try {
           await syncUserToFirestore({
@@ -87,7 +95,7 @@ const App: React.FC = () => {
 
   // Subscribe to files from Database when authenticated (REAL-TIME)
   useEffect(() => {
-    if (userState.isAuthenticated) {
+    if (userState.isAuthenticated && !showLandingPage) {
       setIsLoadingFiles(true);
       const unsubscribe = subscribeToFiles((updatedFiles) => {
         setFiles(updatedFiles);
@@ -95,7 +103,7 @@ const App: React.FC = () => {
       });
       return () => unsubscribe();
     }
-  }, [userState.isAuthenticated]);
+  }, [userState.isAuthenticated, showLandingPage]);
 
   // -- Handlers --
 
@@ -138,6 +146,7 @@ const App: React.FC = () => {
       setIsChatOpen(false);
       setIsUserChatOpen(false);
       setHasUnreadMessages(false);
+      setShowLandingPage(true); // Volta para a Landing Page ao sair
     } catch (error) {
       console.error("Error signing out", error);
     }
@@ -275,6 +284,10 @@ const App: React.FC = () => {
     }
   };
 
+  const handleEnterApp = () => {
+    setShowLandingPage(false);
+  };
+
   // Merge uploaded files (optimistic) and real files (DB), removing duplicates if any
   const allFiles = [...uploadingFiles, ...files].filter((file, index, self) => 
     index === self.findIndex((f) => f.id === file.id)
@@ -285,6 +298,9 @@ const App: React.FC = () => {
     (f.aiSummary && f.aiSummary.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  // --- RENDER FLOW ---
+
+  // 1. Initializing Spinner
   if (isInitializing) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -293,11 +309,24 @@ const App: React.FC = () => {
     );
   }
 
-  // -- Render: Login Screen (VISUAL NOVO: Menta & Pêssego) --
+  // 2. Landing Page (New Entry Point)
+  if (showLandingPage) {
+    return <LandingPage onEnterApp={handleEnterApp} />;
+  }
+
+  // 3. Login Screen (CloudVault)
   if (!userState.isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-teal-100 to-emerald-50 flex flex-col items-center justify-center p-4 relative overflow-hidden">
         
+        {/* Botão de Voltar para Landing Page */}
+        <button 
+          onClick={() => setShowLandingPage(true)}
+          className="absolute top-6 left-6 text-emerald-800 hover:text-emerald-950 font-semibold z-20 flex items-center gap-2"
+        >
+          &larr; Voltar ao Início
+        </button>
+
         {/* Decoração de Fundo (Bolhas Suaves) */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-40">
            <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-teal-200 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
@@ -318,7 +347,7 @@ const App: React.FC = () => {
               {isRegistering ? 'Criar Conta' : 'Área Restrita'}
             </h2>
             <p className="text-purple-800/70 mt-2 font-medium text-sm">
-              {isRegistering ? 'Preencha seus dados' : 'Acesse o sistema da empresa'}
+              {isRegistering ? 'Preencha seus dados' : 'Acesse o sistema CloudVault'}
             </p>
           </div>
 
@@ -407,6 +436,7 @@ const App: React.FC = () => {
     );
   }
 
+  // 4. Main App Dashboard (CloudVault)
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <Header 
