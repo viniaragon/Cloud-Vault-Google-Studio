@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LogIn, Menu, X, Mic, CloudUpload, Keyboard, FileCheck } from 'lucide-react';
+import { LogIn, Menu, X, Mic, CloudUpload, Keyboard, FileCheck, MessageCircle } from 'lucide-react';
 
 interface LandingPageProps {
   onEnterApp: () => void;
@@ -180,9 +180,30 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
       <section id="contato" className="py-16 px-5 max-w-4xl mx-auto">
         <h2 className="text-2xl md:text-3xl font-bold text-[#0b3c75] mb-8 text-center">Contato</h2>
         <div className="bg-white p-8 rounded-xl shadow-lg border-t-4 border-[#0b3c75]">
-          <p className="text-center text-gray-600 mb-8">
+          <p className="text-center text-gray-600 mb-6">
             Preencha o formulário abaixo ou entre em contato pelo WhatsApp para saber mais sobre a Ecolink.
           </p>
+
+          {/* Botão WhatsApp Direto */}
+          <a
+            href="https://wa.me/5500000000000?text=Olá! Vim pelo site da Ecolink e gostaria de saber mais sobre os laudos remotos."
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-3 w-full py-4 bg-[#25D366] hover:bg-[#1da851] text-white font-bold rounded-lg transition-all shadow-md mb-8 transform hover:scale-[1.02]"
+          >
+            <MessageCircle size={24} fill="white" />
+            Falar pelo WhatsApp
+          </a>
+
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-4 bg-white text-gray-500">ou preencha o formulário</span>
+            </div>
+          </div>
+
           <form className="space-y-4">
             <div>
               <label htmlFor="nome" className="block text-sm font-bold text-gray-700 mb-1">Nome</label>
@@ -215,6 +236,17 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
       <footer className="bg-[#0b3c75] text-white text-center py-8 px-4 mt-10">
         <p className="opacity-80">© {new Date().getFullYear()} Ecolink Laudos Remotos – Todos os direitos reservados.</p>
       </footer>
+
+      {/* Botão Flutuante do WhatsApp */}
+      <a
+        href="https://wa.me/5500000000000?text=Olá! Vim pelo site da Ecolink e gostaria de saber mais sobre os laudos remotos."
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 z-50 bg-[#25D366] hover:bg-[#1da851] text-white p-4 rounded-full shadow-lg transition-all transform hover:scale-110 animate-bounce hover:animate-none"
+        title="Fale conosco pelo WhatsApp"
+      >
+        <MessageCircle size={28} fill="white" />
+      </a>
     </div>
   );
 };
