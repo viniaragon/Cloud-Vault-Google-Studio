@@ -1,7 +1,8 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
+import 'firebase/compat/firestore';
+import 'firebase/compat/storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDyKGEEmDufB7gkuXxdcP4NgKTGxEMsdc4",
@@ -14,10 +15,10 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
 
-// Export services
-export const auth = getAuth(app);
-// Initialize Firestore with the specific database ID provided
-export const db = getFirestore(app, "cloud-valut-storage");
-export const storage = getStorage(app);
+export const auth = app.auth();
+export const db = app.firestore();
+export const storage = app.storage();
+
+export default app;

@@ -12,6 +12,9 @@ interface FileCardProps {
 const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSummary }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   
+  // Verifica se o arquivo ainda é uma versão local (blob) que não foi sincronizada
+  const isLocalFile = file.url.startsWith('blob:');
+
   const formatSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -43,20 +46,17 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
   };
 
   const handleDownload = async () => {
-    if (isDownloading) return;
+    if (isDownloading || isLocalFile) return; // Evita download de blob se não quiser, mas geralmente blob funciona pra download local. 
+    // Mantendo a lógica original de download, mas o foco é o Print.
+    
     setIsDownloading(true);
 
     try {
-      // 1. Baixar o arquivo para a memória (Blob)
-      // Nota: Isso requer que o CORS esteja configurado no Firebase Console
       const response = await fetch(file.url);
-      
       if (!response.ok) throw new Error("Falha ao baixar arquivo do servidor.");
       
       const blob = await response.blob();
 
-      // 2. Tentar usar a API moderna "Salvar Como" (File System Access API)
-      // Esta API permite que o usuário escolha a pasta e o nome
       if ('showSaveFilePicker' in window) {
         try {
           const handle = await (window as any).showSaveFilePicker({
@@ -72,20 +72,16 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
           await writable.close();
           
           setIsDownloading(false);
-          return; // Sucesso, paramos aqui.
+          return;
         } catch (err: any) {
-          // Se o usuário cancelou, não é erro.
           if (err.name === 'AbortError') {
             setIsDownloading(false);
             return;
           }
-          // Se deu erro de segurança (iframe/sandbox), continuamos para o fallback
           console.warn("Janela de salvar não permitida neste contexto, usando download automático.");
         }
       }
 
-      // 3. Fallback Clássico (Download Automático na pasta Downloads)
-      // Usado se o navegador não suportar a API nova ou estiver em sandbox
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -97,7 +93,6 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
 
     } catch (error) {
       console.error("Erro no download:", error);
-      // Último recurso: abrir em nova aba (o navegador decide se baixa ou exibe)
       window.open(file.url, '_blank');
     } finally {
       setIsDownloading(false);
@@ -116,14 +111,21 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
           </div>
         )}
         
+        {/* Camada de Ações (Hover) */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100 gap-3">
             
+            {/* BOTÃO IMPRIMIR - Com proteção contra Blob URL */}
             <button 
-              onClick={() => onPrint(file)}
-              className="bg-white text-slate-700 p-3 rounded-full shadow-lg hover:text-emerald-600 transition-colors"
-              title="Imprimir Remotamente"
+              onClick={() => !isLocalFile && onPrint(file)}
+              disabled={isLocalFile}
+              className={`p-3 rounded-full shadow-lg transition-colors ${
+                isLocalFile 
+                  ? 'bg-slate-100 text-slate-300 cursor-wait' 
+                  : 'bg-white text-slate-700 hover:text-emerald-600'
+              }`}
+              title={isLocalFile ? "Aguardando sincronização com a nuvem..." : "Imprimir Remotamente"}
             >
-              <Printer size={22} />
+              {isLocalFile ? <Loader2 size={22} className="animate-spin" /> : <Printer size={22} />}
             </button>
 
             <button 
@@ -143,6 +145,13 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete, onPrint, onViewSumm
               <Trash2 size={22} />
             </button>
         </div>
+
+        {/* Indicador visual de upload em andamento */}
+        {isLocalFile && (
+          <div className="absolute bottom-2 right-2 bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full shadow opacity-90">
+            Enviando...
+          </div>
+        )}
       </div>
 
       <div className="flex-1 min-w-0">
