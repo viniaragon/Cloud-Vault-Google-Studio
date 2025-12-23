@@ -1,17 +1,30 @@
 
 import { FileMetadata, Device } from '../types';
 import { db, storage, auth } from './firebase';
-import firebase from 'firebase/compat/app';
+import {
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  getDocs,
+  query,
+  where,
+  onSnapshot,
+  Timestamp
+} from 'firebase/firestore';
 
 const COLLECTION_NAME = 'files';
 
 // Helper to safely convert Firestore timestamps
 const toDate = (value: any): Date => {
   if (!value) return new Date();
+  if (value instanceof Timestamp) {
+    return value.toDate();
+  }
   if (typeof value.toDate === 'function') {
     return value.toDate();
   }
-  // Check if it's an object with seconds (like the compat timestamp)
   if (value && typeof value.seconds === 'number') {
     return new Date(value.seconds * 1000);
   }
@@ -36,13 +49,13 @@ export const saveFileToStorage = async (metadata: FileMetadata, file: File): Pro
 
   const filePath = `files/${user.uid}/${Date.now()}_${file.name}`;
   const storageRef = storage.ref(filePath);
-  
-  // Upload Compat
+
+  // Upload Compat (storage ainda usa compat)
   const snapshot = await storageRef.put(file);
   const downloadURL = await snapshot.ref.getDownloadURL();
 
   const { url, id, ...rest } = metadata;
-  
+
   const fileData = cleanObject({
     ...rest,
     id: metadata.id,
@@ -51,23 +64,24 @@ export const saveFileToStorage = async (metadata: FileMetadata, file: File): Pro
     userId: user.uid,
     createdAt: new Date()
   });
-  
-  // Firestore Compat
-  await db.collection(COLLECTION_NAME).add(fileData);
+
+  // Firestore Modular API
+  await addDoc(collection(db, COLLECTION_NAME), fileData);
 
   return downloadURL;
 };
 
 export const updateFileInStorage = async (id: string, changes: Partial<FileMetadata>): Promise<void> => {
-  const querySnapshot = await db.collection(COLLECTION_NAME).where("id", "==", id).get();
+  const q = query(collection(db, COLLECTION_NAME), where("id", "==", id));
+  const querySnapshot = await getDocs(q);
 
   if (!querySnapshot.empty) {
     const docRef = querySnapshot.docs[0].ref;
     const { url, ...otherChanges } = changes as any;
     const safeChanges = cleanObject(otherChanges);
-    
+
     if (Object.keys(safeChanges).length > 0) {
-      await docRef.update(safeChanges);
+      await updateDoc(docRef, safeChanges);
     }
   }
 };
@@ -79,10 +93,11 @@ export const getAllFilesFromStorage = async (): Promise<FileMetadata[]> => {
   }
 
   try {
-    const querySnapshot = await db.collection(COLLECTION_NAME).where("userId", "==", user.uid).get();
-    
-    const files: FileMetadata[] = querySnapshot.docs.map(doc => {
-      const data = doc.data();
+    const q = query(collection(db, COLLECTION_NAME), where("userId", "==", user.uid));
+    const querySnapshot = await getDocs(q);
+
+    const files: FileMetadata[] = querySnapshot.docs.map(docSnap => {
+      const data = docSnap.data();
       const safeDate = toDate(data.uploadDate || data.createdAt);
 
       return {
@@ -108,7 +123,8 @@ export const getAllFilesFromStorage = async (): Promise<FileMetadata[]> => {
 };
 
 export const deleteFileFromStorage = async (id: string): Promise<void> => {
-  const querySnapshot = await db.collection(COLLECTION_NAME).where("id", "==", id).get();
+  const q = query(collection(db, COLLECTION_NAME), where("id", "==", id));
+  const querySnapshot = await getDocs(q);
 
   if (!querySnapshot.empty) {
     const docSnap = querySnapshot.docs[0];
@@ -122,7 +138,7 @@ export const deleteFileFromStorage = async (id: string): Promise<void> => {
         console.warn("Arquivo não encontrado no storage ou já deletado", e);
       }
     }
-    await docSnap.ref.delete();
+    await deleteDoc(docSnap.ref);
   }
 };
 
@@ -131,37 +147,36 @@ export const subscribeToFiles = (callback: (files: FileMetadata[]) => void) => {
   const user = auth.currentUser;
   if (!user) {
     callback([]);
-    return () => {}; 
+    return () => { };
   }
 
-  // Compat onSnapshot
-  const unsubscribe = db.collection(COLLECTION_NAME)
-    .where("userId", "==", user.uid)
-    .onSnapshot((snapshot) => {
-      const files: FileMetadata[] = snapshot.docs.map(doc => {
-        const data = doc.data();
-        const safeDate = toDate(data.uploadDate || data.createdAt);
+  const q = query(collection(db, COLLECTION_NAME), where("userId", "==", user.uid));
 
-        return {
-          id: data.id,
-          name: data.name,
-          size: data.size,
-          type: data.type,
-          mimeType: data.mimeType,
-          url: data.url,
-          uploadDate: safeDate,
-          uploader: data.uploader,
-          aiSummary: data.aiSummary,
-          isAnalyzing: data.isAnalyzing
-        } as FileMetadata;
-      });
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const files: FileMetadata[] = snapshot.docs.map(docSnap => {
+      const data = docSnap.data();
+      const safeDate = toDate(data.uploadDate || data.createdAt);
 
-      files.sort((a, b) => b.uploadDate.getTime() - a.uploadDate.getTime());
-      
-      callback(files);
-    }, (error) => {
-      console.error("Erro no listener de arquivos:", error);
+      return {
+        id: data.id,
+        name: data.name,
+        size: data.size,
+        type: data.type,
+        mimeType: data.mimeType,
+        url: data.url,
+        uploadDate: safeDate,
+        uploader: data.uploader,
+        aiSummary: data.aiSummary,
+        isAnalyzing: data.isAnalyzing
+      } as FileMetadata;
     });
+
+    files.sort((a, b) => b.uploadDate.getTime() - a.uploadDate.getTime());
+
+    callback(files);
+  }, (error) => {
+    console.error("Erro no listener de arquivos:", error);
+  });
 
   return unsubscribe;
 };
@@ -169,7 +184,7 @@ export const subscribeToFiles = (callback: (files: FileMetadata[]) => void) => {
 // --- FUNÇÕES DE IMPRESSÃO (Dispositivos) ---
 
 export const sendPrintJob = async (fileUrl: string, deviceId: string, printerName: string) => {
-  await db.collection('fila_impressao').add({
+  await addDoc(collection(db, 'fila_impressao'), {
     pc_alvo_id: deviceId,
     impressora_alvo: printerName,
     url_arquivo: fileUrl,
@@ -180,14 +195,14 @@ export const sendPrintJob = async (fileUrl: string, deviceId: string, printerNam
 
 export const getOnlineDevices = async (): Promise<Device[]> => {
   try {
-    const snapshot = await db.collection('dispositivos_online').get();
-    
+    const snapshot = await getDocs(collection(db, 'dispositivos_online'));
+
     const devices: Device[] = [];
     const now = new Date();
 
-    snapshot.docs.forEach(doc => {
-      const data = doc.data();
-      
+    snapshot.docs.forEach(docSnap => {
+      const data = docSnap.data();
+
       let lastSeenDate = new Date(0);
       if (data.ultimo_visto) {
         lastSeenDate = toDate(data.ultimo_visto);
@@ -198,7 +213,7 @@ export const getOnlineDevices = async (): Promise<Device[]> => {
       const isOnline = diffMinutes < 2.5;
 
       devices.push({
-        id: doc.id,
+        id: docSnap.id,
         name: data.nome || data.name || 'PC Sem Nome',
         status: isOnline ? 'online' : 'offline',
         impressoras: data.impressoras || [],
@@ -207,8 +222,8 @@ export const getOnlineDevices = async (): Promise<Device[]> => {
     });
 
     devices.sort((a, b) => {
-        if (a.status === b.status) return 0;
-        return a.status === 'online' ? -1 : 1;
+      if (a.status === b.status) return 0;
+      return a.status === 'online' ? -1 : 1;
     });
 
     return devices;
@@ -221,7 +236,7 @@ export const getOnlineDevices = async (): Promise<Device[]> => {
 
 export const deleteDevice = async (deviceId: string): Promise<void> => {
   try {
-    await db.collection('dispositivos_online').doc(deviceId).delete();
+    await deleteDoc(doc(db, 'dispositivos_online', deviceId));
     console.log(`Dispositivo ${deviceId} deletado com sucesso.`);
   } catch (error) {
     console.error("Erro ao deletar dispositivo:", error);
